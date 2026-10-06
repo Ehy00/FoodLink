@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+/* FoodLink design tokens, taken from the team's prototype screens.
+   Green = the brand and anything about food help.
+   Purple = anything the AI did (so residents can always tell).
+   Amber / red = caution and problems. */
+@theme {
+  --color-cream: #f4f6f1;
+  --color-paper: #ffffff;
+  --color-ink: #14372a;
+  --color-body: #2f3d36;
+  --color-muted: #5e6b63;
+  --color-line: #e1e6de;
+
+  --color-forest: #1f6b45;
+  --color-forest-dark: #175236;
+  --color-mint: #e4eee5;
+  --color-mint-line: #cddfd0;
+
+  --color-ai: #5145d6;
+  --color-ai-dark: #3f35b0;
+  --color-ai-soft: #edecfc;
+  --color-ai-line: #d2cef8;
+
+  --color-amber: #a9690f;
+  --color-amber-soft: #fbf0d9;
+  --color-danger: #b3261e;
+  --color-danger-soft: #fbe9e7;
+
+  --font-display: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --shadow-card: 0 1px 2px rgb(20 55 42 / 0.05), 0 4px 14px rgb(20 55 42 / 0.05);
+  --shadow-phone: 0 20px 60px rgb(20 55 42 / 0.16);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: #e6ebe3;
+  color: var(--color-body);
+  font-family: var(--font-sans);
+}
+
+/* Large, obvious keyboard focus for every interactive element. In the base
+   layer so a component can opt out and draw the ring on its wrapper instead. */
+@layer base {
+  :focus-visible {
+    outline: 3px solid var(--color-ai);
+    outline-offset: 2px;
+  }
+}
+
+/* For pill-shaped search boxes: ring the whole pill, not the bare input inside it. */
+.ring-within:has(:focus-visible) {
+  outline: 3px solid var(--color-ai);
+  outline-offset: 2px;
+}
+.ring-within input:focus-visible {
+  outline: none;
+}
+
+/* Hide scrollbars on the horizontal chip rows without disabling scroll. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---- Map ---- */
+.leaflet-container {
+  background: #e9eee6;
+  font-family: var(--font-sans);
+  z-index: 0;
+}
+.fl-pin {
+  background: none;
+  border: none;
+}
+.fl-pin svg {
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.25));
+}
+.fl-you {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #3b82f6;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 6px rgb(59 130 246 / 0.25);
+}
+.leaflet-popup-content-wrapper {
+  border-radius: 14px;
+}
+.leaflet-popup-content {
+  margin: 10px 14px;
+  font-size: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
