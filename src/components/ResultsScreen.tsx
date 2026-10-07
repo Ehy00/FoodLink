@@ -9,7 +9,8 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { telUrl } from "@/lib/format";
-import type { SearchTags } from "@/lib/types";
+import type { Key } from "@/lib/i18n/dictionary";
+import type { Audience, Offer, SearchTags } from "@/lib/types";
 import { useI18n } from "./I18nProvider";
 import { ListingCard } from "./listing-bits";
 import { EMPTY_TAGS, useSearch } from "./SearchProvider";
@@ -20,10 +21,26 @@ const MapView = dynamic(() => import("./MapView"), {
   loading: () => <div className="min-h-72 animate-pulse bg-line/60" aria-hidden />,
 });
 
+const NEED_LABELS: Record<Offer, Key> = {
+  groceries: "tag.groceries",
+  hot_meal: "tag.hot_meal",
+  produce: "tag.produce",
+  baby: "tag.baby",
+  hygiene: "tag.hygiene",
+};
+
+const AUDIENCE_LABELS: Record<Audience, Key> = {
+  anyone: "tag.anyone",
+  families: "tag.families",
+  kids: "tag.kids",
+  seniors: "tag.seniors",
+  students: "tag.students",
+};
+
 function selectedLabels(tags: SearchTags, t: ReturnType<typeof useI18n>["t"]): string[] {
   const labels: string[] = [];
-  for (const need of tags.needs) labels.push(t(`tag.${need}`));
-  for (const audience of tags.audiences) labels.push(t(`tag.${audience}`));
+  for (const need of tags.needs) labels.push(t(NEED_LABELS[need]));
+  for (const audience of tags.audiences) labels.push(t(AUDIENCE_LABELS[audience]));
   if (tags.noId) labels.push(t("tag.no_id"));
   if (tags.wheelchair) labels.push(t("tag.wheelchair"));
   if (tags.when === "today") labels.push(t("tag.today"));
