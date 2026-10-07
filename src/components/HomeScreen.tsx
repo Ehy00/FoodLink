@@ -15,6 +15,7 @@ import { EventRow } from "./EventRow";
 import { useI18n } from "./I18nProvider";
 import { EMPTY_TAGS, useSearch } from "./SearchProvider";
 import { SecurityShowcase } from "./SecurityShowcase";
+import { VoiceInputButton } from "./VoiceInputButton";
 
 const QUICK_FILTERS: Array<{ key: Key; apply: (t: SearchTags) => SearchTags }> = [
   { key: "chip.open_today", apply: (t) => ({ ...t, when: "today" }) },
@@ -25,7 +26,7 @@ const QUICK_FILTERS: Array<{ key: Key; apply: (t: SearchTags) => SearchTags }> =
 ];
 
 export function HomeScreen({ foodLinePhone }: { foodLinePhone: string }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const router = useRouter();
   const search = useSearch();
   const [zip, setZip] = useState(search.tags.zip ?? "");
@@ -168,6 +169,13 @@ export function HomeScreen({ foodLinePhone }: { foodLinePhone: string }) {
             enterKeyHint="search"
             placeholder={`“${t("home.ask.placeholder")}”`}
             className="min-h-11 w-full bg-transparent text-base text-ink placeholder:text-muted"
+          />
+          <VoiceInputButton
+            lang={lang}
+            onTranscript={(text) => setQuestion((current) => (current.trim() ? `${current.trim()} ${text}` : text))}
+            label={t("voice.start")}
+            listeningLabel={t("voice.listening")}
+            unavailableLabel={t("voice.unavailable")}
           />
           <button
             type="submit"
