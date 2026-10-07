@@ -4,7 +4,7 @@
 // - desktop/laptop: list and live map side-by-side
 // - mobile: compact List / Map switch
 
-import { ChevronLeft, LockKeyhole, Phone, ShieldCheck, Sparkles } from "lucide-react";
+import { Bot, ChevronLeft, Phone, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
@@ -65,6 +65,46 @@ function matchReasons(listing: ListingView, tags: SearchTags, t: ReturnType<type
   return reasons.slice(0, 3);
 }
 
+function roundedTravelMinutes(distanceMiles: number, mph: number): number {
+  const raw = (distanceMiles / mph) * 60;
+  return Math.max(5, Math.ceil(raw / 5) * 5);
+}
+
+function conversationalReply(
+  matches: ListingView[],
+  hasOrigin: boolean,
+  t: ReturnType<typeof useI18n>["t"],
+): { message: string; showTransitNote: boolean } {
+  if (matches.length === 0) return { message: t("ai.reply.none"), showTransitNote: false };
+  if (!hasOrigin) return { message: t("ai.reply.noLocation"), showTransitNote: false };
+
+  const closest = matches[0];
+  const parts = [
+    t(matches.length === 1 ? "ai.reply.found.one" : "ai.reply.found.many", { n: matches.length }),
+  ];
+
+  if (closest.distanceMiles !== null) {
+    parts.push(
+      t("ai.reply.closest", {
+        name: closest.name,
+        distance: closest.distanceMiles.toFixed(1),
+      }),
+    );
+    parts.push(
+      t("ai.reply.travel", {
+        walk: roundedTravelMinutes(closest.distanceMiles, 3),
+        drive: roundedTravelMinutes(closest.distanceMiles, 20),
+      }),
+    );
+  }
+  if (closest.open.state === "open") parts.push(t("ai.reply.open"));
+
+  const otherNames = matches.slice(1, 3).map((listing) => listing.name);
+  if (otherNames.length > 0) parts.push(t("ai.reply.more", { names: otherNames.join(" · ") }));
+
+  return { message: parts.join(" "), showTransitNote: closest.distanceMiles !== null };
+}
+
 export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
   const { t } = useI18n();
   const s = useSearch();
@@ -92,6 +132,7 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
   const busy = s.status === "parsing" || s.status === "searching" || s.status === "idle";
   const onMap = s.matches.length === 0 || showUnconfirmed ? [...s.matches, ...s.unconfirmed] : s.matches;
   const aiLabels = selectedLabels(s.tags, t);
+  const reply = s.status === "ready" ? conversationalReply(s.matches, !!s.origin, t) : null;
 
   const resultsContent = (
     <div aria-live="polite" aria-busy={busy}>
@@ -208,34 +249,53 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
         <TagBar tags={s.tags} fromAi={s.query !== null} engine={s.engine} onChange={(tags) => void s.search(tags, true)} />
       )}
 
-      <div className="grid gap-3 md:grid-cols-2">
-        <section className="interactive-card rounded-2xl border border-ai-line bg-ai-soft/90 p-4 shadow-card backdrop-blur">
-          <div className="flex items-start gap-3">
-            <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-ai" aria-hidden />
-            <div>
-              <h2 className="font-display text-sm font-semibold text-ai-dark">{t("ai.understood")}</h2>
-              <p className="mt-1 text-sm text-body">
-                {aiLabels.length > 0 ? aiLabels.join(" · ") : t("ai.nothing")}
-              </p>
-              <p className="mt-2 text-xs font-medium text-ai-dark">{t("ai.tapToChange")}</p>
-            </div>
-          </div>
-        </section>
+      {s.query && (
+        <section className="fade-up rounded-[24px] border border-ai-line bg-paper/90 p-4 shadow-card backdrop-blur md:p-5">
+          <h2 className="mb-4 flex items-center gap-2 font-display text-sm font-semibold text-ink">
+            <Sparkles className="h-4 w-4 text-ai" aria-hidden />
+            {t("ai.reply.title")}
+          </h2>
 
-        <Link href="/privacy" className="interactive-card rounded-2xl border border-mint-line bg-mint/90 p-4 shadow-card backdrop-blur hover:bg-mint-line/60">
-          <div className="flex items-start gap-3">
-            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-forest" aria-hidden />
-            <div>
-              <h2 className="font-display text-sm font-semibold text-ink">{t("security.center.title")}</h2>
-              <p className="mt-1 text-sm text-body">{t("security.center.body")}</p>
-              <p className="mt-2 flex items-center gap-1.5 text-xs font-bold text-forest">
-                <LockKeyhole className="h-3.5 w-3.5" aria-hidden />
-                {t("ai.notSaved")}
-              </p>
+          <div className="ms-auto flex max-w-[88%] items-start justify-end gap-2">
+            <div className="rounded-2xl rounded-se-md bg-forest px-4 py-3 text-sm leading-relaxed text-white shadow-card">
+              {s.query}
             </div>
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-forest text-white">
+              <UserRound className="h-4 w-4" aria-hidden />
+            </span>
           </div>
-        </Link>
-      </div>
+
+          {reply && (
+            <div className="mt-3 flex max-w-[94%] items-start gap-2">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ai text-white shadow-card">
+                <Bot className="h-4 w-4" aria-hidden />
+              </span>
+              <div className="rounded-2xl rounded-ss-md border border-ai-line bg-ai-soft px-4 py-3 shadow-card">
+                <p className="text-sm leading-relaxed text-body">{reply.message}</p>
+                {aiLabels.length > 0 && (
+                  <p className="mt-2 text-xs font-medium text-ai-dark">
+                    {aiLabels.join(" · ")}
+                  </p>
+                )}
+                {reply.showTransitNote && (
+                  <p className="mt-2 text-[11px] leading-relaxed text-muted">{t("ai.reply.transit")}</p>
+                )}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      <Link href="/privacy" className="interactive-card rounded-2xl border border-mint-line bg-mint/90 p-4 shadow-card backdrop-blur hover:bg-mint-line/60">
+        <div className="flex items-start gap-3">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-forest" aria-hidden />
+          <div>
+            <h2 className="font-display text-sm font-semibold text-ink">{t("home.private.title")}</h2>
+            <p className="mt-1 text-sm text-body">{t("home.private.body")}</p>
+            <p className="mt-2 text-xs font-bold text-forest">{t("privacy.link")} →</p>
+          </div>
+        </div>
+      </Link>
 
       {s.zipOutsidePilot && s.status === "ready" && (
         <p className="rounded-xl bg-amber-soft px-3.5 py-2.5 text-sm text-amber">{t("home.zip.outside")}</p>
