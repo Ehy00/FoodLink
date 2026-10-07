@@ -112,7 +112,7 @@ export default function MapView({
         const rank = rankById?.[listing.id];
         const icon = L.divIcon({
           className: "fl-pin",
-          html: pinSvg(PIN_COLORS[kind], rank && rank <= 3 ? String(rank) : undefined, listing.id === activeListingId),
+          html: pinSvg(PIN_COLORS[kind], rank && rank <= 99 ? String(rank) : undefined, listing.id === activeListingId),
           iconSize: [34, 43],
           iconAnchor: [17, 42],
           popupAnchor: [0, -38],
@@ -192,9 +192,9 @@ export default function MapView({
       if (points.length === 1 && !origin) {
         map.setView(points[0], singleZoom);
       } else if (points.length > 0) {
-        const framed = points.slice(0, 8);
+        const framed = [...points];
         if (origin) framed.push([origin.lat, origin.lng]);
-        map.fitBounds(L.latLngBounds(framed), { padding: [28, 28], maxZoom: 14 });
+        map.fitBounds(L.latLngBounds(framed), { padding: [34, 34], maxZoom: 14 });
       } else if (origin) {
         map.setView([origin.lat, origin.lng], 12);
       }
@@ -234,7 +234,7 @@ export default function MapView({
         marker.setIcon(
           L.divIcon({
             className: "fl-pin",
-            html: pinSvg(PIN_COLORS[kind], rank && rank <= 3 ? String(rank) : undefined, active),
+            html: pinSvg(PIN_COLORS[kind], rank && rank <= 99 ? String(rank) : undefined, active),
             iconSize: [34, 43],
             iconAnchor: [17, 42],
             popupAnchor: [0, -38],
