@@ -2,9 +2,9 @@
 
 // Building blocks used wherever a listing is shown.
 
-import { BadgeCheck, Clock, Navigation, Phone } from "lucide-react";
+import { BadgeCheck, Clock, Heart, Navigation, Phone } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { directionsUrl, formatMiles, telUrl, verifiedLabel, whenLabel } from "@/lib/format";
 import type { Key } from "@/lib/i18n/dictionary";
 import type { ListingView } from "@/lib/types";
@@ -111,20 +111,51 @@ export function ListingCard({
   listing,
   highlighted = false,
   onHover,
+  onSelect,
 }: {
   listing: ListingView;
   highlighted?: boolean;
   onHover?: (active: boolean) => void;
+  onSelect?: () => void;
 }) {
   const { t, lang } = useI18n();
   const chips = listingChips(listing, t);
+  const [favorite, setFavorite] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("foodlink-favorites") ?? "[]") as string[];
+      setFavorite(saved.includes(listing.id));
+    } catch {
+      setFavorite(false);
+    }
+  }, [listing.id]);
+
+  function toggleFavorite() {
+    try {
+      const saved = JSON.parse(localStorage.getItem("foodlink-favorites") ?? "[]") as string[];
+      const next = saved.includes(listing.id)
+        ? saved.filter((id) => id !== listing.id)
+        : [...saved, listing.id];
+      localStorage.setItem("foodlink-favorites", JSON.stringify(next));
+      setFavorite(next.includes(listing.id));
+    } catch {
+      setFavorite((value) => !value);
+    }
+  }
+
   return (
     <article
+      onClick={(event) => {
+        const target = event.target as HTMLElement;
+        if (target.closest("a,button")) return;
+        onSelect?.();
+      }}
       onMouseEnter={() => onHover?.(true)}
       onMouseLeave={() => onHover?.(false)}
       onFocusCapture={() => onHover?.(true)}
       onBlurCapture={() => onHover?.(false)}
-      className={`interactive-card rounded-2xl border bg-paper/90 p-4 shadow-card backdrop-blur transition-all ${
+      className={`interactive-card cursor-pointer rounded-2xl border bg-paper/90 p-4 shadow-card backdrop-blur transition-all ${
         highlighted ? "border-ai ring-2 ring-ai/25 -translate-y-0.5" : "border-line"
       }`}
     >
@@ -134,7 +165,21 @@ export function ListingCard({
             {listing.name}
           </Link>
         </h3>
-        <FreshnessBadge listing={listing} />
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleFavorite}
+            aria-pressed={favorite}
+            aria-label={favorite ? "Remove from saved places" : "Save this place"}
+            title={favorite ? "Remove from saved places" : "Save this place"}
+            className={`grid h-8 w-8 place-items-center rounded-full border transition ${
+              favorite ? "border-ai-line bg-ai-soft text-ai" : "border-line bg-paper text-muted hover:text-ai"
+            }`}
+          >
+            <Heart className="h-4 w-4" fill={favorite ? "currentColor" : "none"} aria-hidden />
+          </button>
+          <FreshnessBadge listing={listing} />
+        </div>
       </div>
       <p className="mt-1.5 flex items-center gap-1.5 text-[13px] text-muted">
         <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
