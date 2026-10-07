@@ -125,7 +125,8 @@ export async function seedDatabase(c: Client, now: Date = new Date()): Promise<v
   const existing = await c.execute("SELECT COUNT(*) AS n FROM listings");
   if (Number(existing.rows[0].n) > 0) return;
 
-  const organizerSeeded = await seedUsers(c, now);
+  const staffDemoEnabled = !!process.env.FOODLINK_DATA_KEY;
+  const organizerSeeded = staffDemoEnabled ? await seedUsers(c, now) : false;
   const nowIso = now.toISOString();
 
   for (const s of SEED_LISTINGS) {
@@ -203,7 +204,9 @@ export async function seedDatabase(c: Client, now: Date = new Date()): Promise<v
   }
 
   // One suspicious submission waiting for review, to demonstrate AI screening.
-  {
+  // It depends on seeded staff accounts, so skip it when the resident-only app
+  // is running without staff demo secrets.
+  if (staffDemoEnabled) {
     const scam: ListingDraft = {
       name: "Free Grocery Giveaway Huntsville",
       type: "pantry",
