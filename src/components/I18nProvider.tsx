@@ -22,9 +22,10 @@ export function I18nProvider({ initialLang, children }: { initialLang: Lang; chi
   const setLang = useCallback(
     (next: Lang) => {
       setLangState(next);
-      // A functional cookie holding only "en" or "es". Not an identifier.
+      // A functional language-preference cookie. It is not an identifier.
       document.cookie = `${LANG_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
       document.documentElement.lang = next;
+      document.documentElement.dir = next === "ar" ? "rtl" : "ltr";
       router.refresh();
     },
     [router],
