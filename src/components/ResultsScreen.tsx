@@ -376,7 +376,10 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setPageIndex((page) => Math.max(0, page - 1))}
+                onClick={() => {
+                  setFocusedListingId(null);
+                  setPageIndex((page) => Math.max(0, page - 1));
+                }}
                 disabled={!hasPreviousPage}
                 className="min-h-12 rounded-full border-2 border-line bg-paper/90 px-4 text-sm font-bold text-forest shadow-card transition hover:bg-mint disabled:cursor-not-allowed disabled:opacity-35"
               >
@@ -384,7 +387,10 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
               </button>
               <button
                 type="button"
-                onClick={() => setPageIndex((page) => page + 1)}
+                onClick={() => {
+                  setFocusedListingId(null);
+                  setPageIndex((page) => page + 1);
+                }}
                 disabled={!hasNextPage}
                 className="min-h-12 rounded-full border-2 border-forest bg-paper/90 px-4 text-sm font-bold text-forest shadow-card transition hover:-translate-y-0.5 hover:bg-mint disabled:cursor-not-allowed disabled:opacity-35"
               >
