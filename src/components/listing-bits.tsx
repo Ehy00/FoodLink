@@ -107,11 +107,27 @@ export function ActionButtons({ listing, size = "md" }: { listing: ListingView; 
   );
 }
 
-export function ListingCard({ listing }: { listing: ListingView }) {
+export function ListingCard({
+  listing,
+  highlighted = false,
+  onHover,
+}: {
+  listing: ListingView;
+  highlighted?: boolean;
+  onHover?: (active: boolean) => void;
+}) {
   const { t, lang } = useI18n();
   const chips = listingChips(listing, t);
   return (
-    <article className="interactive-card rounded-2xl border border-line bg-paper/90 p-4 shadow-card backdrop-blur">
+    <article
+      onMouseEnter={() => onHover?.(true)}
+      onMouseLeave={() => onHover?.(false)}
+      onFocusCapture={() => onHover?.(true)}
+      onBlurCapture={() => onHover?.(false)}
+      className={`interactive-card rounded-2xl border bg-paper/90 p-4 shadow-card backdrop-blur transition-all ${
+        highlighted ? "border-ai ring-2 ring-ai/25 -translate-y-0.5" : "border-line"
+      }`}
+    >
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-display text-base font-semibold leading-snug text-ink">
           <Link href={`/listing/${listing.id}`} className="underline-offset-2 hover:underline">
