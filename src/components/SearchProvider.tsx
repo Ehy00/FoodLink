@@ -32,6 +32,8 @@ interface SearchState {
   status: Status;
   /** The words typed into Ask FoodLink, if any. Memory only. */
   query: string | null;
+  /** In-memory sequence number used to keep conversational turns distinct. */
+  queryId: number;
   engine: ParseResult["engine"] | null;
   tags: SearchTags;
   matches: ListingView[];
@@ -57,6 +59,7 @@ interface SearchApi extends SearchState {
 const INITIAL: SearchState = {
   status: "idle",
   query: null,
+  queryId: 0,
   engine: null,
   tags: EMPTY_TAGS,
   matches: [],
@@ -101,7 +104,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     async (text: string, continueConversation = false) => {
       const id = ++requestId.current;
       const previousTags = state.tags;
-      setState((s) => ({ ...s, status: "parsing", query: text, engine: null, errorMessage: null }));
+      setState((s) => ({ ...s, status: "parsing", query: text, queryId: s.queryId + 1, engine: null, errorMessage: null }));
       try {
         const parsed = await postJson<ParseResult>("/api/parse", { text });
         if (id !== requestId.current) return;
