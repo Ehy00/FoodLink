@@ -1,16 +1,10 @@
 "use client";
 
-// Map of listings using Leaflet and OpenStreetMap tiles.
-//
-// Privacy notes:
-//   - Map tiles are the only thing FoodLink loads from another site. The tile
-//     server sees which map squares were requested, not who asked or why.
-//   - Popups are built with DOM text nodes, never listing-provided HTML.
-
 import "leaflet/dist/leaflet.css";
-import type { Map as LeafletMap, Marker as LeafletMarker } from "leaflet";
+import type { Map as LeafletMap, Marker as LeafletMarker, Polyline as LeafletPolyline } from "leaflet";
+import { Crosshair, Expand, LocateFixed, Maximize2, Minimize2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_CENTER, type Point } from "@/lib/geo";
 import { openLabel } from "@/lib/format";
 import type { ListingView } from "@/lib/types";
@@ -41,13 +35,13 @@ interface Props {
   listingKinds?: Record<string, MapListingKind>;
   rankById?: Record<string, number>;
   activeListingId?: string | null;
+  focusedListingId?: string | null;
   onListingHover?: (id: string | null) => void;
-  /** Keep the map still (used for the small preview on a listing page). */
+  onListingSelect?: (id: string | null) => void;
   locked?: boolean;
-  /** Zoom used when there is a single listing. */
   singleZoom?: number;
-  /** Show the + / - buttons. Off for small previews, where they cover the pins. */
   zoomButtons?: boolean;
+  enhancedControls?: boolean;
 }
 
 export default function MapView({
@@ -58,16 +52,67 @@ export default function MapView({
   listingKinds,
   rankById,
   activeListingId = null,
+  focusedListingId = null,
   onListingHover,
+  onListingSelect,
   locked = false,
   singleZoom = 15,
   zoomButtons = true,
+  enhancedControls = true,
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const markersRef = useRef<Map<string, LeafletMarker>>(new Map());
+  const routeLineRef = useRef<LeafletPolyline | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
   const router = useRouter();
   const { t } = useI18n();
+
+  const fitVisible = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const points: Array<[number, number]> = listings.map((l) => [l.lat, l.lng]);
+    if (origin) points.push([origin.lat, origin.lng]);
+    if (points.length === 0) {
+      map.setView([DEFAULT_CENTER.lat, DEFAULT_CENTER.lng], 11);
+      return;
+    }
+    if (points.length === 1) {
+      map.setView(points[0], singleZoom);
+      return;
+    }
+    void import("leaflet").then(({ default: L }) => {
+      map.flyToBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 14, duration: 0.7 });
+    });
+  }, [listings, origin, singleZoom]);
+
+  const recenterOrigin = useCallback(() => {
+    const map = mapRef.current;
+    if (!map || !origin) return;
+    map.flyTo([origin.lat, origin.lng], Math.max(map.getZoom(), 13), { duration: 0.65 });
+  }, [origin]);
+
+  const toggleFullscreen = useCallback(async () => {
+    const shell = shellRef.current;
+    if (!shell) return;
+    try {
+      if (!document.fullscreenElement) await shell.requestFullscreen();
+      else await document.exitFullscreen();
+    } catch {
+      setFullscreen((value) => !value);
+      requestAnimationFrame(() => mapRef.current?.invalidateSize({ pan: false }));
+    }
+  }, []);
+
+  useEffect(() => {
+    const onChange = () => {
+      setFullscreen(!!document.fullscreenElement);
+      requestAnimationFrame(() => mapRef.current?.invalidateSize({ pan: false }));
+    };
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,14 +132,13 @@ export default function MapView({
         keyboard: !locked,
         attributionControl: true,
       }).setView([DEFAULT_CENTER.lat, DEFAULT_CENTER.lng], 11);
+
       mapRef.current = map;
       markersRef.current.clear();
 
       resizeObserver =
         typeof ResizeObserver !== "undefined"
-          ? new ResizeObserver(() => {
-              map?.invalidateSize({ pan: false });
-            })
+          ? new ResizeObserver(() => map?.invalidateSize({ pan: false }))
           : null;
       resizeObserver?.observe(container.current);
 
@@ -110,19 +154,23 @@ export default function MapView({
           listingKinds?.[listing.id] ??
           (listing.underReview ? "review" : listing.freshness.level === "fresh" ? "match" : "check");
         const rank = rankById?.[listing.id];
+        const selected = listing.id === focusedListingId || listing.id === activeListingId;
         const icon = L.divIcon({
           className: "fl-pin",
-          html: pinSvg(PIN_COLORS[kind], rank && rank <= 99 ? String(rank) : undefined, listing.id === activeListingId),
+          html: pinSvg(PIN_COLORS[kind], rank && rank <= 99 ? String(rank) : undefined, selected),
           iconSize: [34, 43],
           iconAnchor: [17, 42],
           popupAnchor: [0, -38],
         });
+
         const marker = L.marker([listing.lat, listing.lng], {
           icon,
           title: listing.name,
           alt: listing.name,
           riseOnHover: true,
+          keyboard: true,
         }).addTo(map);
+
         markersRef.current.set(listing.id, marker);
         points.push([listing.lat, listing.lng]);
 
@@ -153,11 +201,21 @@ export default function MapView({
             listing.idRequired === "no" ? t("tag.no_id") : null,
             listing.wheelchair === "yes" ? t("tag.wheelchair") : null,
           ].filter((v): v is string => !!v);
+
           for (const fact of facts.slice(0, 3)) {
             const chip = document.createElement("span");
             chip.textContent = fact;
             chips.appendChild(chip);
           }
+
+          const actions = document.createElement("div");
+          actions.className = "fl-map-popup-actions";
+
+          const focusButton = document.createElement("button");
+          focusButton.type = "button";
+          focusButton.textContent = "Focus on map";
+          focusButton.className = "fl-map-popup-button";
+          focusButton.addEventListener("click", () => onListingSelect?.(listing.id));
 
           const link = document.createElement("a");
           link.href = `/listing/${listing.id}`;
@@ -168,14 +226,16 @@ export default function MapView({
             router.push(`/listing/${listing.id}`);
           });
 
+          actions.append(focusButton, link);
           popup.append(name, status);
           if (listing.distanceMiles !== null) popup.append(distance);
           if (facts.length > 0) popup.append(chips);
-          popup.append(link);
+          popup.append(actions);
           marker.bindPopup(popup);
 
           marker.on("mouseover", () => onListingHover?.(listing.id));
           marker.on("mouseout", () => onListingHover?.(null));
+          marker.on("click", () => onListingSelect?.(listing.id));
         }
       }
 
@@ -205,11 +265,12 @@ export default function MapView({
     return () => {
       cancelled = true;
       resizeObserver?.disconnect();
+      routeLineRef.current?.remove();
+      routeLineRef.current = null;
       map?.remove();
       mapRef.current = null;
       markersRef.current.clear();
     };
-    // Rebuild only when map data changes. Active styling is handled separately.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     listings.map((l) => `${l.id}:${listingKinds?.[l.id] ?? ""}:${rankById?.[l.id] ?? ""}`).join(","),
@@ -223,6 +284,9 @@ export default function MapView({
 
   useEffect(() => {
     void import("leaflet").then(({ default: L }) => {
+      const map = mapRef.current;
+      if (!map) return;
+
       for (const listing of listings) {
         const marker = markersRef.current.get(listing.id);
         if (!marker) continue;
@@ -230,30 +294,114 @@ export default function MapView({
           listingKinds?.[listing.id] ??
           (listing.underReview ? "review" : listing.freshness.level === "fresh" ? "match" : "check");
         const rank = rankById?.[listing.id];
-        const active = listing.id === activeListingId;
+        const selected = listing.id === focusedListingId || listing.id === activeListingId;
         marker.setIcon(
           L.divIcon({
             className: "fl-pin",
-            html: pinSvg(PIN_COLORS[kind], rank && rank <= 99 ? String(rank) : undefined, active),
+            html: pinSvg(PIN_COLORS[kind], rank && rank <= 99 ? String(rank) : undefined, selected),
             iconSize: [34, 43],
             iconAnchor: [17, 42],
             popupAnchor: [0, -38],
           }),
         );
-        marker.setZIndexOffset(active ? 1000 : 0);
-        if (active && !locked) marker.openPopup();
-        else if (!active && !locked) marker.closePopup();
+        marker.setZIndexOffset(selected ? 1000 : 0);
+      }
+
+      routeLineRef.current?.remove();
+      routeLineRef.current = null;
+
+      const focused = focusedListingId ? listings.find((listing) => listing.id === focusedListingId) : null;
+      if (focused) {
+        const marker = markersRef.current.get(focused.id);
+        marker?.openPopup();
+        map.flyTo([focused.lat, focused.lng], Math.max(map.getZoom(), 14), { duration: 0.65 });
+
+        if (origin) {
+          routeLineRef.current = L.polyline(
+            [
+              [origin.lat, origin.lng],
+              [focused.lat, focused.lng],
+            ],
+            {
+              color: "#5145d6",
+              weight: 3,
+              opacity: 0.8,
+              dashArray: "8 8",
+              interactive: false,
+            },
+          ).addTo(map);
+        }
       }
     });
-  }, [activeListingId, listings, listingKinds, rankById, locked]);
+  }, [activeListingId, focusedListingId, listings, listingKinds, rankById, locked, origin]);
 
   return (
     <div
-      ref={container}
-      className={`w-full overflow-hidden ${className}`}
-      style={height !== undefined ? { height: typeof height === "number" ? `${height}px` : height } : undefined}
-      role="application"
-      aria-label={t("map.title")}
-    />
+      ref={shellRef}
+      className={`relative w-full overflow-hidden bg-paper ${fullscreen ? "h-screen" : className}`}
+      style={!fullscreen && height !== undefined ? { height: typeof height === "number" ? `${height}px` : height } : undefined}
+    >
+      <div
+        ref={container}
+        className="h-full w-full"
+        role="application"
+        aria-label={t("map.title")}
+      />
+
+      {!locked && enhancedControls && (
+        <div className="absolute end-3 top-3 z-[500] flex flex-col gap-2" aria-label="Map controls">
+          <button
+            type="button"
+            onClick={fitVisible}
+            className="fl-map-control"
+            aria-label="Fit all visible results"
+            title="Fit all visible results"
+          >
+            <Expand className="h-4 w-4" aria-hidden />
+          </button>
+
+          {origin && (
+            <button
+              type="button"
+              onClick={recenterOrigin}
+              className="fl-map-control"
+              aria-label="Recenter on your area"
+              title="Recenter on your area"
+            >
+              <LocateFixed className="h-4 w-4" aria-hidden />
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              onListingSelect?.(null);
+              fitVisible();
+            }}
+            className="fl-map-control"
+            aria-label="Reset map"
+            title="Reset map"
+          >
+            <Crosshair className="h-4 w-4" aria-hidden />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void toggleFullscreen()}
+            className="fl-map-control"
+            aria-label={fullscreen ? "Exit fullscreen map" : "Open fullscreen map"}
+            title={fullscreen ? "Exit fullscreen map" : "Open fullscreen map"}
+          >
+            {fullscreen ? <Minimize2 className="h-4 w-4" aria-hidden /> : <Maximize2 className="h-4 w-4" aria-hidden />}
+          </button>
+        </div>
+      )}
+
+      {focusedListingId && origin && (
+        <div className="absolute bottom-3 start-1/2 z-[500] -translate-x-1/2 rounded-full border border-ai-line bg-paper/95 px-3 py-1.5 text-[11px] font-semibold text-ai-dark shadow-card backdrop-blur">
+          Straight-line guide only — use Directions for street routing
+        </div>
+      )}
+    </div>
   );
 }
