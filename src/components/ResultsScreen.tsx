@@ -243,7 +243,7 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
 
       {(s.status === "error" || s.status === "rate") && (
         <div role="alert" className="rounded-2xl bg-danger-soft p-4 text-sm text-danger">
-          <p>{t(s.status === "rate" ? "results.rate" : "results.error")}</p>
+          <p>{s.status === "rate" ? t("results.rate") : s.errorMessage ?? t("results.error")}</p>
           <button
             type="button"
             onClick={() => void s.search(s.tags, true)}
