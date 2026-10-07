@@ -20,7 +20,7 @@ export interface LlmClient {
 }
 
 export const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
-const TIMEOUT_MS = 6000;
+const TIMEOUT_MS = 2500;
 
 let cached: LlmClient | null | undefined;
 
@@ -39,7 +39,7 @@ export function getLlmClient(): LlmClient | null {
     async fillForm({ system, user, tool }) {
       const response = await client.messages.create({
         model,
-        max_tokens: 500,
+        max_tokens: 250,
         system,
         messages: [{ role: "user", content: user }],
         tools: [
