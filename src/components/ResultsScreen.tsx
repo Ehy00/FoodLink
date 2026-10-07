@@ -327,7 +327,7 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
                 <Bot className="h-4 w-4" aria-hidden />
               </span>
               <div className="max-w-[90%] rounded-2xl rounded-ss-md border border-ai-line bg-ai-soft px-4 py-3">
-                <p className="text-sm leading-relaxed text-body">{t("ai.reply.noLocation")}</p>
+                <p className="text-sm leading-relaxed text-body">{t("chat.welcome")}</p>
               </div>
             </div>
           )}
