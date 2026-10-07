@@ -365,7 +365,10 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
             ))}
           </div>
           {view === "map" && (
-            <div className="overflow-hidden rounded-2xl border border-line bg-paper/90 shadow-card backdrop-blur">
+            <div
+            style={{ height: desktopMapHeight }}
+            className="flex min-h-[360px] flex-col overflow-hidden rounded-2xl border border-line bg-paper/90 shadow-card backdrop-blur"
+          >
               <MapView
                 listings={onMap}
                 origin={s.origin}
@@ -415,11 +418,11 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
                 rankById={rankById}
                 activeListingId={activeListingId}
                 onListingHover={setActiveListingId}
-                height={desktopMapHeight}
-                className="min-h-[360px]"
+                height="100%"
+                className="min-h-0 flex-1"
               />
             ) : (
-              <div style={{ height: desktopMapHeight }} className="min-h-[360px] animate-pulse bg-line/60" aria-hidden />
+              <div className="min-h-0 flex-1 animate-pulse bg-line/60" aria-hidden />
             )}
           </div>
         </aside>
