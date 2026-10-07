@@ -38,7 +38,7 @@ export function SecurityShowcase() {
             <article key={title} className="interactive-card rounded-2xl border border-line/80 bg-paper/80 p-4 shadow-card backdrop-blur">
               <div className="mb-3 flex items-center justify-between">
                 <span className="grid h-9 w-9 place-items-center rounded-xl bg-mint text-forest">
-                  <Icon className="h-4.5 w-4.5" aria-hidden />
+                  <Icon className="h-4 w-4" aria-hidden />
                 </span>
                 <span className="text-[10px] font-bold text-muted">0{index + 1}</span>
               </div>
