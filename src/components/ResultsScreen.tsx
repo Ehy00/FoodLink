@@ -1,13 +1,15 @@
 "use client";
 
-// Step 2 of the resident journey: see what the AI understood, fix it if it is
-// wrong, and pick a place.
+// Search results are intentionally responsive:
+// - desktop/laptop: list and live map side-by-side
+// - mobile: compact List / Map switch
 
-import { ChevronLeft, Phone, Sparkles } from "lucide-react";
+import { ChevronLeft, LockKeyhole, Phone, ShieldCheck, Sparkles } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { telUrl } from "@/lib/format";
+import type { SearchTags } from "@/lib/types";
 import { useI18n } from "./I18nProvider";
 import { ListingCard } from "./listing-bits";
 import { EMPTY_TAGS, useSearch } from "./SearchProvider";
@@ -15,8 +17,20 @@ import { TagBar } from "./TagBar";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
-  loading: () => <div className="h-44 animate-pulse bg-line/60" aria-hidden />,
+  loading: () => <div className="min-h-72 animate-pulse bg-line/60" aria-hidden />,
 });
+
+function selectedLabels(tags: SearchTags, t: ReturnType<typeof useI18n>["t"]): string[] {
+  const labels: string[] = [];
+  for (const need of tags.needs) labels.push(t(`tag.${need}`));
+  for (const audience of tags.audiences) labels.push(t(`tag.${audience}`));
+  if (tags.noId) labels.push(t("tag.no_id"));
+  if (tags.wheelchair) labels.push(t("tag.wheelchair"));
+  if (tags.when === "today") labels.push(t("tag.today"));
+  if (tags.when === "now") labels.push(t("tag.now"));
+  if (tags.zip) labels.push(tags.zip);
+  return labels;
+}
 
 export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
   const { t } = useI18n();
@@ -25,14 +39,11 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
   const [view, setView] = useState<"list" | "map">("list");
   const [showUnconfirmed, setShowUnconfirmed] = useState(false);
 
-  // Opening this screen directly (or after a refresh, which clears everything)
-  // shows all listings rather than an empty page.
   const { status, hasSearched, search } = s;
   useEffect(() => {
     if (status === "idle" && !hasSearched) void search(EMPTY_TAGS);
   }, [status, hasSearched, search]);
 
-  // Keep the search box in step when a new request arrives from the Home screen.
   const [shownQuery, setShownQuery] = useState(s.query);
   if (shownQuery !== s.query) {
     setShownQuery(s.query);
@@ -46,11 +57,83 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
   }
 
   const busy = s.status === "parsing" || s.status === "searching" || s.status === "idle";
-  // The map shows the confirmed matches. Unconfirmed places join it only once the resident expands them.
   const onMap = s.matches.length === 0 || showUnconfirmed ? [...s.matches, ...s.unconfirmed] : s.matches;
+  const aiLabels = selectedLabels(s.tags, t);
+
+  const resultsContent = (
+    <div aria-live="polite" aria-busy={busy}>
+      {busy && (
+        <div role="status" className="space-y-3">
+          <span className="sr-only">{t("results.loading")}</span>
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-40 animate-pulse rounded-2xl bg-line/60" aria-hidden />
+          ))}
+        </div>
+      )}
+
+      {s.status === "ready" && (
+        <>
+          {s.matches.length > 0 && (
+            <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="font-display text-[15px] font-semibold text-ink">
+                {t(
+                  `results.${s.matches.every((m) => m.freshness.level === "fresh" && !m.underReview) ? "matches" : "places"}.${
+                    s.matches.length === 1 ? "one" : "many"
+                  }`,
+                  { n: s.matches.length },
+                )}
+              </h2>
+              <span className="text-xs text-muted">{s.origin ? t("results.closest") : t("results.noOrigin")}</span>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-3">
+            {s.matches.map((l) => (
+              <ListingCard key={l.id} listing={l} />
+            ))}
+          </div>
+
+          {s.matches.length === 0 && (
+            <div className="rounded-2xl border border-line bg-paper p-5 text-center shadow-card">
+              <h2 className="font-display text-base font-semibold text-ink">{t("results.none.title")}</h2>
+              <p className="mt-1 text-sm text-muted">{t("results.none.body")}</p>
+              <a
+                href={telUrl(foodLinePhone)}
+                className="mt-3.5 inline-flex min-h-11 items-center gap-2 rounded-full bg-forest px-5 text-sm font-bold text-white"
+              >
+                <Phone className="h-4 w-4" aria-hidden />
+                {foodLinePhone}
+              </a>
+            </div>
+          )}
+
+          {s.unconfirmed.length > 0 && (
+            <section className="mt-6">
+              <h2 className="font-display text-[15px] font-semibold text-ink">{t("results.unconfirmed.title")}</h2>
+              <p className="mb-2.5 mt-0.5 text-xs text-muted">{t("results.unconfirmed.body")}</p>
+              <div className="flex flex-col gap-3">
+                {(showUnconfirmed ? s.unconfirmed : s.unconfirmed.slice(0, 2)).map((l) => (
+                  <ListingCard key={l.id} listing={l} />
+                ))}
+              </div>
+              {!showUnconfirmed && s.unconfirmed.length > 2 && (
+                <button
+                  type="button"
+                  onClick={() => setShowUnconfirmed(true)}
+                  className="mt-3 min-h-11 w-full rounded-full border-2 border-line bg-paper text-sm font-bold text-forest"
+                >
+                  {t("results.unconfirmed.more", { n: s.unconfirmed.length - 2 })}
+                </button>
+              )}
+            </section>
+          )}
+        </>
+      )}
+    </div>
+  );
 
   return (
-    <div className="flex flex-col gap-4 px-5 pb-8 pt-4">
+    <div className="mx-auto flex w-full max-w-[1220px] flex-col gap-4 px-4 pb-8 pt-4 sm:px-6 lg:px-8">
       <form onSubmit={submit} className="flex items-center gap-2">
         <Link href="/" aria-label={t("results.back")} className="grid h-11 w-9 shrink-0 place-items-center text-ink">
           <ChevronLeft className="h-6 w-6" aria-hidden />
@@ -82,6 +165,35 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
         <TagBar tags={s.tags} fromAi={s.query !== null} engine={s.engine} onChange={(tags) => void s.search(tags, true)} />
       )}
 
+      <div className="grid gap-3 md:grid-cols-2">
+        <section className="rounded-2xl border border-ai-line bg-ai-soft p-4">
+          <div className="flex items-start gap-3">
+            <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-ai" aria-hidden />
+            <div>
+              <h2 className="font-display text-sm font-semibold text-ai-dark">{t("ai.understood")}</h2>
+              <p className="mt-1 text-sm text-body">
+                {aiLabels.length > 0 ? aiLabels.join(" · ") : t("ai.nothing")}
+              </p>
+              <p className="mt-2 text-xs font-medium text-ai-dark">{t("ai.tapToChange")}</p>
+            </div>
+          </div>
+        </section>
+
+        <Link href="/privacy" className="rounded-2xl border border-mint-line bg-mint p-4 transition hover:bg-mint-line/60">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-forest" aria-hidden />
+            <div>
+              <h2 className="font-display text-sm font-semibold text-ink">{t("home.private.title")}</h2>
+              <p className="mt-1 text-sm text-body">{t("home.private.body")}</p>
+              <p className="mt-2 flex items-center gap-1.5 text-xs font-bold text-forest">
+                <LockKeyhole className="h-3.5 w-3.5" aria-hidden />
+                {t("ai.notSaved")}
+              </p>
+            </div>
+          </div>
+        </Link>
+      </div>
+
       {s.zipOutsidePilot && s.status === "ready" && (
         <p className="rounded-xl bg-amber-soft px-3.5 py-2.5 text-sm text-amber">{t("home.zip.outside")}</p>
       )}
@@ -100,92 +212,46 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
       )}
 
       {s.status === "ready" && onMap.length > 0 && (
-        <div className="relative overflow-hidden rounded-2xl border border-line">
-          <MapView listings={onMap} origin={s.origin} className={view === "map" ? "h-[55dvh]" : "h-44"} zoomButtons={view === "map"} />
-          <div role="group" className="absolute right-2.5 top-2.5 z-[500] flex rounded-full bg-paper p-0.5 text-xs font-bold shadow-card">
+        <div className="md:hidden">
+          <div role="group" className="mb-3 grid grid-cols-2 rounded-xl border border-line bg-paper p-1 text-sm font-bold shadow-card">
             {(["list", "map"] as const).map((v) => (
               <button
                 key={v}
                 type="button"
                 onClick={() => setView(v)}
                 aria-pressed={view === v}
-                className={`min-h-8 rounded-full px-3 ${view === v ? "bg-forest text-white" : "text-muted"}`}
+                className={`min-h-10 rounded-lg ${view === v ? "bg-forest text-white" : "text-muted"}`}
               >
                 {t(v === "list" ? "results.list" : "results.map")}
               </button>
             ))}
           </div>
+          {view === "map" && (
+            <div className="overflow-hidden rounded-2xl border border-line bg-paper shadow-card">
+              <MapView listings={onMap} origin={s.origin} className="h-[62dvh] min-h-[430px]" />
+            </div>
+          )}
         </div>
       )}
 
-      <div aria-live="polite" aria-busy={busy}>
-        {busy && (
-          <div role="status" className="space-y-3">
-            <span className="sr-only">{t("results.loading")}</span>
-            {[0, 1].map((i) => (
-              <div key={i} className="h-40 animate-pulse rounded-2xl bg-line/60" aria-hidden />
-            ))}
-          </div>
-        )}
+      <div className="md:grid md:grid-cols-[minmax(0,0.92fr)_minmax(420px,1.08fr)] md:items-start md:gap-5 lg:gap-6">
+        <section className={view === "map" ? "hidden md:block" : "block"}>{resultsContent}</section>
 
-        {s.status === "ready" && (
-          <>
-            {s.matches.length > 0 && (
-              <div className="mb-2.5 flex items-baseline justify-between">
-                <h2 className="font-display text-[15px] font-semibold text-ink">
-                  {/* "Verified" is only claimed when every match was checked recently. */}
-                  {t(
-                    `results.${s.matches.every((m) => m.freshness.level === "fresh" && !m.underReview) ? "matches" : "places"}.${
-                      s.matches.length === 1 ? "one" : "many"
-                    }`,
-                    { n: s.matches.length },
-                  )}
-                </h2>
-                <span className="text-xs text-muted">{s.origin ? t("results.closest") : t("results.noOrigin")}</span>
-              </div>
-            )}
-            <div className="flex flex-col gap-3">
-              {s.matches.map((l) => (
-                <ListingCard key={l.id} listing={l} />
-              ))}
+        <aside className="sticky top-4 hidden md:block">
+          <div className="overflow-hidden rounded-2xl border border-line bg-paper shadow-card">
+            <div className="border-b border-line px-4 py-3">
+              <h2 className="font-display text-base font-semibold text-ink">{t("map.title")}</h2>
+              <p className="mt-0.5 text-xs text-muted">
+                {s.tags.zip ? t("ai.summary.near", { zip: s.tags.zip }) : t("ai.summary.all")}
+              </p>
             </div>
-
-            {s.matches.length === 0 && (
-              <div className="rounded-2xl border border-line bg-paper p-5 text-center shadow-card">
-                <h2 className="font-display text-base font-semibold text-ink">{t("results.none.title")}</h2>
-                <p className="mt-1 text-sm text-muted">{t("results.none.body")}</p>
-                <a
-                  href={telUrl(foodLinePhone)}
-                  className="mt-3.5 inline-flex min-h-11 items-center gap-2 rounded-full bg-forest px-5 text-sm font-bold text-white"
-                >
-                  <Phone className="h-4 w-4" aria-hidden />
-                  {foodLinePhone}
-                </a>
-              </div>
+            {s.status === "ready" && onMap.length > 0 ? (
+              <MapView listings={onMap} origin={s.origin} className="h-[calc(100dvh-250px)] min-h-[520px] max-h-[760px]" />
+            ) : (
+              <div className="h-[560px] animate-pulse bg-line/60" aria-hidden />
             )}
-
-            {s.unconfirmed.length > 0 && (
-              <section className="mt-6">
-                <h2 className="font-display text-[15px] font-semibold text-ink">{t("results.unconfirmed.title")}</h2>
-                <p className="mb-2.5 mt-0.5 text-xs text-muted">{t("results.unconfirmed.body")}</p>
-                <div className="flex flex-col gap-3">
-                  {(showUnconfirmed ? s.unconfirmed : s.unconfirmed.slice(0, 2)).map((l) => (
-                    <ListingCard key={l.id} listing={l} />
-                  ))}
-                </div>
-                {!showUnconfirmed && s.unconfirmed.length > 2 && (
-                  <button
-                    type="button"
-                    onClick={() => setShowUnconfirmed(true)}
-                    className="mt-3 min-h-11 w-full rounded-full border-2 border-line bg-paper text-sm font-bold text-forest"
-                  >
-                    {t("results.unconfirmed.more", { n: s.unconfirmed.length - 2 })}
-                  </button>
-                )}
-              </section>
-            )}
-          </>
-        )}
+          </div>
+        </aside>
       </div>
     </div>
   );
