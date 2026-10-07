@@ -181,6 +181,11 @@ const en = {
   "map.loading": "Loading map…",
   "map.legend.fresh": "Recently verified",
   "map.legend.check": "Check before you go",
+  "map.legend.best": "Best nearby match",
+  "map.legend.match": "Good match",
+  "map.legend.review": "Under review",
+  "map.legend.you": "Your area",
+  "map.legend.top": "Pins 1–3 are your closest matches",
   "map.you": "Your area",
 
   "events.title": "Events",
@@ -410,6 +415,11 @@ const es: Record<Key, string> = {
   "map.loading": "Cargando el mapa…",
   "map.legend.fresh": "Verificado recientemente",
   "map.legend.check": "Confirma antes de ir",
+  "map.legend.best": "Mejor opción cercana",
+  "map.legend.match": "Buena opción",
+  "map.legend.review": "En revisión",
+  "map.legend.you": "Tu zona",
+  "map.legend.top": "Los pines 1–3 son las opciones más cercanas",
   "map.you": "Tu zona",
 
   "events.title": "Eventos",
