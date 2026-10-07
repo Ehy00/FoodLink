@@ -114,6 +114,7 @@ const en = {
   "results.start": "Start a search from the Search tab.",
 
   "card.directions": "Directions",
+  "card.viewDetails": "View details",
   "card.call": "Call",
   "card.noPhone": "No phone listed",
   "card.verifiedOrganizer": "Verified organizer",
@@ -185,7 +186,7 @@ const en = {
   "map.legend.match": "Good match",
   "map.legend.review": "Under review",
   "map.legend.you": "Your area",
-  "map.legend.top": "Pins 1–3 are your closest matches",
+  "map.legend.top": "Pins 1–3 are your top results",
   "map.you": "Your area",
 
   "events.title": "Events",
@@ -348,6 +349,7 @@ const es: Record<Key, string> = {
   "results.start": "Empieza una búsqueda desde la pestaña Buscar.",
 
   "card.directions": "Cómo llegar",
+  "card.viewDetails": "Ver detalles",
   "card.call": "Llamar",
   "card.noPhone": "Sin teléfono",
   "card.verifiedOrganizer": "Organizador verificado",
@@ -419,7 +421,7 @@ const es: Record<Key, string> = {
   "map.legend.match": "Buena opción",
   "map.legend.review": "En revisión",
   "map.legend.you": "Tu zona",
-  "map.legend.top": "Los pines 1–3 son las opciones más cercanas",
+  "map.legend.top": "Los pines 1–3 son tus mejores resultados",
   "map.you": "Tu zona",
 
   "events.title": "Eventos",
