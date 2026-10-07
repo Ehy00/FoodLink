@@ -33,7 +33,7 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const lang = await getLang();
   return (
-    <html lang={lang} className="h-full antialiased">
+    <html lang={lang} dir={lang === "ar" ? "rtl" : "ltr"} className="h-full antialiased">
       <body className="min-h-full">
         <I18nProvider initialLang={lang}>
           <ThemeProvider>{children}</ThemeProvider>
