@@ -1,6 +1,6 @@
 // Shared domain types for FoodLink.
 
-export type Lang = "en" | "es";
+export type Lang = "en" | "es" | "fr" | "pt" | "ar" | "zh" | "hi" | "bn" | "ru" | "sw";
 
 export type ListingType =
   | "food_bank"
