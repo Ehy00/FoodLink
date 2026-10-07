@@ -17,7 +17,10 @@ export const metadata: Metadata = {
     "Free, no-sign-up guide to verified food banks, pantries and free meals in Huntsville and Madison County. We never track who you are.",
   // Keep the prototype out of search engines: its data is sample data.
   robots: { index: false, follow: false },
-  referrer: "no-referrer",
+  // OpenStreetMap requires web tile requests to include a valid Referer.
+  // strict-origin-when-cross-origin sends only this site's origin to the tile
+  // host, which satisfies that requirement without leaking page paths.
+  referrer: "strict-origin-when-cross-origin",
 };
 
 export const viewport: Viewport = {
