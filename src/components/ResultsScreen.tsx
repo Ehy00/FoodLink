@@ -5,7 +5,7 @@
 // - closest results shown in manageable batches
 // - map always represents exactly the locations currently visible in the list
 
-import { Bot, ChevronLeft, Phone, Send, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import { Bot, ChevronLeft, Compass, Phone, Search, Send, ShieldCheck, Sparkles, UserRound, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -149,6 +149,12 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
   const [draft, setDraft] = useState("");
   const [view, setView] = useState<"list" | "map">("list");
   const [activeListingId, setActiveListingId] = useState<string | null>(null);
+  const [focusedListingId, setFocusedListingId] = useState<string | null>(null);
+  const [exploreOpen, setExploreOpen] = useState(false);
+  const [exploreQuery, setExploreQuery] = useState("");
+  const [exploreFilter, setExploreFilter] = useState<
+    "all" | "open" | "no_id" | "wheelchair" | "groceries" | "hot_meal" | "produce" | "pantry" | "event"
+  >("all");
   const [pageIndex, setPageIndex] = useState(0);
   const [desktopMapHeight, setDesktopMapHeight] = useState(520);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
@@ -164,6 +170,7 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
 
   useEffect(() => {
     setPageIndex(0);
+    setFocusedListingId(null);
   }, [s.queryId, s.tags.zip, s.origin?.lat, s.origin?.lng]);
 
   useEffect(() => {
@@ -209,7 +216,44 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
   }
 
   const busy = s.status === "parsing" || s.status === "searching" || s.status === "idle";
-  const rankedResults = rankResults(s.matches, s.unconfirmed, !!s.origin);
+  const allRankedResults = rankResults(s.matches, s.unconfirmed, !!s.origin);
+  const normalizedExploreQuery = exploreQuery.trim().toLowerCase();
+  const rankedResults = allRankedResults.filter(({ listing }) => {
+    const queryMatches =
+      !normalizedExploreQuery ||
+      [
+        listing.name,
+        listing.type,
+        listing.city,
+        listing.zip,
+        ...listing.offers,
+        ...listing.audiences,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedExploreQuery);
+
+    if (!queryMatches) return false;
+
+    switch (exploreFilter) {
+      case "open":
+        return listing.open.state === "open";
+      case "no_id":
+        return listing.idRequired === "no";
+      case "wheelchair":
+        return listing.wheelchair === "yes";
+      case "groceries":
+      case "hot_meal":
+      case "produce":
+        return listing.offers.includes(exploreFilter);
+      case "pantry":
+        return listing.type === "pantry" || listing.type === "food_bank" || listing.type === "campus_pantry";
+      case "event":
+        return listing.type === "event" || listing.type === "mobile";
+      default:
+        return true;
+    }
+  });
   const pageStart = pageIndex * PAGE_SIZE;
   const pageEnd = Math.min(pageStart + PAGE_SIZE, rankedResults.length);
   const visibleResults = rankedResults.slice(pageStart, pageEnd);
@@ -232,6 +276,24 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
 
   const pendingQuestion =
     busy && s.query && s.queryId > 0 && capturedTurnRef.current !== s.queryId ? s.query : null;
+
+  const exploreOptions = [
+    ["all", t("map.explore.all")],
+    ["open", t("chip.open_now")],
+    ["no_id", t("tag.no_id")],
+    ["wheelchair", t("tag.wheelchair")],
+    ["groceries", t("tag.groceries")],
+    ["hot_meal", t("tag.hot_meal")],
+    ["produce", t("tag.produce")],
+    ["pantry", t("map.explore.pantries")],
+    ["event", t("map.explore.events")],
+  ] as const;
+
+  function chooseExploreFilter(next: typeof exploreFilter) {
+    setExploreFilter(next);
+    setPageIndex(0);
+    setFocusedListingId(null);
+  }
 
   const resultsContent = (
     <div aria-live="polite" aria-busy={busy}>
@@ -270,8 +332,9 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
                 <div key={listing.id}>
                   <ListingCard
                     listing={listing}
-                    highlighted={activeListingId === listing.id}
+                    highlighted={activeListingId === listing.id || focusedListingId === listing.id}
                     onHover={(active) => setActiveListingId(active ? listing.id : null)}
+                    onSelect={() => setFocusedListingId((current) => (current === listing.id ? null : listing.id))}
                   />
                   {(reasons.length > 0 || unconfirmed) && (
                     <div
@@ -468,6 +531,76 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
         </div>
       </Link>
 
+      {s.status === "ready" && allRankedResults.length > 0 && (
+        <section className="rounded-2xl border border-line bg-paper/90 p-3 shadow-card backdrop-blur sm:p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setExploreOpen((open) => !open)}
+              aria-expanded={exploreOpen}
+              className="inline-flex min-h-10 items-center gap-2 rounded-full bg-forest px-4 text-sm font-bold text-white transition hover:bg-forest-dark"
+            >
+              <Compass className="h-4 w-4" aria-hidden />
+              {t("map.explore.title")}
+            </button>
+            {(exploreQuery || exploreFilter !== "all") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setExploreQuery("");
+                  chooseExploreFilter("all");
+                }}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-line px-3 text-xs font-bold text-muted hover:bg-cream"
+              >
+                <X className="h-3.5 w-3.5" aria-hidden />
+                {t("map.explore.clear")}
+              </button>
+            )}
+          </div>
+
+          {exploreOpen && (
+            <div className="mt-3 space-y-3">
+              <label className="ring-within flex items-center gap-2 rounded-xl border border-line bg-paper px-3">
+                <Search className="h-4 w-4 shrink-0 text-muted" aria-hidden />
+                <span className="sr-only">{t("map.explore.search")}</span>
+                <input
+                  value={exploreQuery}
+                  onChange={(event) => {
+                    setExploreQuery(event.target.value);
+                    setPageIndex(0);
+                    setFocusedListingId(null);
+                  }}
+                  placeholder={t("map.explore.search")}
+                  className="min-h-11 min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-muted"
+                />
+              </label>
+
+              <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1" aria-label={t("map.explore.categories")}>
+                {exploreOptions.map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => chooseExploreFilter(value)}
+                    aria-pressed={exploreFilter === value}
+                    className={`interactive-chip min-h-9 shrink-0 rounded-full border px-3 text-xs font-bold ${
+                      exploreFilter === value
+                        ? "border-forest bg-forest text-white"
+                        : "border-line bg-paper text-body"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <p className="text-xs text-muted">
+                {t("map.explore.count", { n: rankedResults.length })}
+              </p>
+            </div>
+          )}
+        </section>
+      )}
+
       {s.zipOutsidePilot && s.status === "ready" && (
         <p className="rounded-xl bg-amber-soft px-3.5 py-2.5 text-sm text-amber">{t("home.zip.outside")}</p>
       )}
@@ -509,7 +642,9 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
                 listingKinds={listingKinds}
                 rankById={rankById}
                 activeListingId={activeListingId}
+                focusedListingId={focusedListingId}
                 onListingHover={setActiveListingId}
+                onListingSelect={setFocusedListingId}
                 className="h-[62dvh] min-h-[430px]"
               />
             </div>
@@ -560,7 +695,9 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
                 listingKinds={listingKinds}
                 rankById={rankById}
                 activeListingId={activeListingId}
+                focusedListingId={focusedListingId}
                 onListingHover={setActiveListingId}
+                onListingSelect={setFocusedListingId}
                 height="100%"
                 className="min-h-0 flex-1"
               />
