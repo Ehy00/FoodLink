@@ -10,17 +10,17 @@ import type { Lang } from "@/lib/types";
 import { useI18n } from "./I18nProvider";
 import { useTheme, type ThemeChoice } from "./ThemeProvider";
 
-const LANGUAGES: Array<{ code: Lang; label: string; short: string }> = [
-  { code: "en", label: "English", short: "EN" },
-  { code: "es", label: "Español", short: "ES" },
-  { code: "fr", label: "Français", short: "FR" },
-  { code: "pt", label: "Português", short: "PT" },
-  { code: "ar", label: "العربية", short: "AR" },
-  { code: "zh", label: "中文", short: "中文" },
-  { code: "hi", label: "हिन्दी", short: "हि" },
-  { code: "bn", label: "বাংলা", short: "বা" },
-  { code: "ru", label: "Русский", short: "RU" },
-  { code: "sw", label: "Kiswahili", short: "SW" },
+const LANGUAGES: Array<{ code: Lang; label: string }> = [
+  { code: "en", label: "English" },
+  { code: "es", label: "Español" },
+  { code: "fr", label: "Français" },
+  { code: "pt", label: "Português" },
+  { code: "ar", label: "العربية" },
+  { code: "zh", label: "中文" },
+  { code: "hi", label: "हिन्दी" },
+  { code: "bn", label: "বাংলা" },
+  { code: "ru", label: "Русский" },
+  { code: "sw", label: "Kiswahili" },
 ];
 
 export function Logo() {
