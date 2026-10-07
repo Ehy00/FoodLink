@@ -651,6 +651,8 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
                 focusedListingId={focusedListingId}
                 onListingHover={setActiveListingId}
                 onListingSelect={setFocusedListingId}
+                focusOriginOnReady
+                refreshKey={view}
                 className="h-[62dvh] min-h-[430px]"
               />
             </div>
