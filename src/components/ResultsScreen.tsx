@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { telUrl } from "@/lib/format";
 import type { Key } from "@/lib/i18n/dictionary";
-import type { Audience, Offer, SearchTags } from "@/lib/types";
+import type { Audience, ListingView, Offer, SearchTags } from "@/lib/types";
 import { useI18n } from "./I18nProvider";
 import { ListingCard } from "./listing-bits";
 import { EMPTY_TAGS, useSearch } from "./SearchProvider";
@@ -47,6 +47,22 @@ function selectedLabels(tags: SearchTags, t: ReturnType<typeof useI18n>["t"]): s
   if (tags.when === "now") labels.push(t("tag.now"));
   if (tags.zip) labels.push(tags.zip);
   return labels;
+}
+
+function matchReasons(listing: ListingView, tags: SearchTags, t: ReturnType<typeof useI18n>["t"]): string[] {
+  const reasons: string[] = [];
+  for (const need of tags.needs) {
+    if (listing.offers.includes(need)) reasons.push(t(NEED_LABELS[need]));
+  }
+  for (const audience of tags.audiences) {
+    if (listing.audiences.includes(audience)) reasons.push(t(AUDIENCE_LABELS[audience]));
+  }
+  if (tags.noId && listing.idRequired === "no") reasons.push(t("tag.no_id"));
+  if (tags.wheelchair && listing.wheelchair === "yes") reasons.push(t("tag.wheelchair"));
+  if (tags.when === "now" && listing.open.state === "open") reasons.push(t("open.now"));
+  else if (tags.when === "today" && listing.open.openToday) reasons.push(t("tag.today"));
+  if (reasons.length === 0 && listing.distanceMiles !== null) reasons.push(t("card.miles", { n: listing.distanceMiles.toFixed(1) }));
+  return reasons.slice(0, 3);
 }
 
 export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
@@ -105,9 +121,19 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
           )}
 
           <div className="flex flex-col gap-3">
-            {s.matches.map((l) => (
-              <ListingCard key={l.id} listing={l} />
-            ))}
+            {s.matches.map((l) => {
+              const reasons = matchReasons(l, s.tags, t);
+              return (
+                <div key={l.id}>
+                  <ListingCard listing={l} />
+                  {reasons.length > 0 && (
+                    <div className="-mt-2 mx-3 rounded-b-xl border-x border-b border-ai-line bg-ai-soft px-3 pb-2.5 pt-3 text-xs text-ai-dark">
+                      <span className="font-bold">{t("ai.match.title")}:</span> {reasons.join(" · ")}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {s.matches.length === 0 && (
@@ -200,8 +226,8 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
           <div className="flex items-start gap-3">
             <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-forest" aria-hidden />
             <div>
-              <h2 className="font-display text-sm font-semibold text-ink">{t("home.private.title")}</h2>
-              <p className="mt-1 text-sm text-body">{t("home.private.body")}</p>
+              <h2 className="font-display text-sm font-semibold text-ink">{t("security.center.title")}</h2>
+              <p className="mt-1 text-sm text-body">{t("security.center.body")}</p>
               <p className="mt-2 flex items-center gap-1.5 text-xs font-bold text-forest">
                 <LockKeyhole className="h-3.5 w-3.5" aria-hidden />
                 {t("ai.notSaved")}
