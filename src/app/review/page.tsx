@@ -29,8 +29,8 @@ export default async function ReviewPage() {
       <ReviewQueue revisions={revisions} reports={reports} applicants={applicants} />
 
       <section className="mt-10">
-        <h2 className="font-display text-lg font-semibold text-ink">Recent activity</h2>
-        <p className="text-xs text-muted">Audit log of sign-ins and decisions. Resident searches are never logged.</p>
+        <h2 className="font-display text-lg font-semibold text-ink">Security & Activity Log</h2>
+        <p className="text-xs text-muted">Audit log of staff sign-ins, failed attempts and review decisions. Resident searches are never logged.</p>
         <div className="mt-3 overflow-x-auto rounded-2xl border border-line bg-paper">
           <table className="w-full text-left text-sm">
             <thead className="bg-cream text-xs text-muted">
