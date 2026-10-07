@@ -1,6 +1,6 @@
 "use client";
 
-import { Mic, MicOff } from "lucide-react";
+import { Mic, MicOff, Settings2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Lang } from "@/lib/types";
 
@@ -63,11 +63,11 @@ function recognitionConstructor(): SpeechRecognitionConstructor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
-function errorMessage(error: string | undefined): string {
+function recognitionError(error: string | undefined): string {
   switch (error) {
     case "not-allowed":
     case "service-not-allowed":
-      return "Microphone access is blocked. Allow microphone permission for this site and try again.";
+      return "Microphone permission is blocked.";
     case "audio-capture":
       return "FoodLink cannot access a microphone. Check that your microphone is connected and enabled.";
     case "no-speech":
@@ -97,6 +97,7 @@ export function VoiceInputButton({
   const [listening, setListening] = useState(false);
   const [supported, setSupported] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
+  const [showPermissionHelp, setShowPermissionHelp] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const heardResultRef = useRef(false);
 
@@ -105,14 +106,17 @@ export function VoiceInputButton({
     return () => recognitionRef.current?.abort();
   }, []);
 
-  async function ensureMicrophonePermission(): Promise<boolean> {
+  async function requestMicrophone(): Promise<boolean> {
     if (!navigator.mediaDevices?.getUserMedia) return true;
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       for (const track of stream.getTracks()) track.stop();
+      setShowPermissionHelp(false);
       return true;
     } catch {
-      setMessage("Microphone access is blocked. Allow microphone permission for this site and try again.");
+      setMessage("Microphone permission is blocked.");
+      setShowPermissionHelp(true);
       return false;
     }
   }
@@ -133,7 +137,7 @@ export function VoiceInputButton({
     setMessage(null);
     heardResultRef.current = false;
 
-    const allowed = await ensureMicrophonePermission();
+    const allowed = await requestMicrophone();
     if (!allowed) return;
 
     const recognition = new Recognition();
@@ -172,8 +176,11 @@ export function VoiceInputButton({
       setMessage("I heard audio but could not understand the words. Please try again.");
     };
     recognition.onerror = (event) => {
-      const friendly = errorMessage(event.error);
+      const friendly = recognitionError(event.error);
       setListening(false);
+      if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+        setShowPermissionHelp(true);
+      }
       if (friendly) setMessage(friendly);
     };
     recognition.onend = () => {
@@ -219,13 +226,56 @@ export function VoiceInputButton({
         {supported ? <Mic className="relative h-4 w-4" aria-hidden /> : <MicOff className="h-4 w-4" aria-hidden />}
       </button>
 
-      {message && (
+      {message && !showPermissionHelp && (
         <span
           role="status"
           className="absolute bottom-full end-0 z-30 mb-2 w-64 rounded-xl border border-line bg-paper px-3 py-2 text-xs leading-relaxed text-body shadow-card"
         >
           {message}
         </span>
+      )}
+
+      {showPermissionHelp && (
+        <div
+          role="dialog"
+          aria-label="Enable microphone"
+          className="absolute bottom-full end-0 z-40 mb-2 w-[min(330px,calc(100vw-2rem))] rounded-2xl border border-line bg-paper p-4 text-start shadow-xl"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-mint text-forest">
+                <Settings2 className="h-4 w-4" aria-hidden />
+              </span>
+              <div>
+                <p className="font-display text-sm font-semibold text-ink">Enable microphone</p>
+                <p className="text-[11px] text-muted">FoodLink needs browser permission to hear you.</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPermissionHelp(false)}
+              aria-label="Close microphone help"
+              className="grid h-8 w-8 place-items-center rounded-full text-muted hover:bg-cream"
+            >
+              <X className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+
+          <div className="mt-3 rounded-xl bg-cream px-3 py-3 text-xs leading-relaxed text-body">
+            <p className="font-bold text-ink">On Chrome or Edge:</p>
+            <p className="mt-1">
+              Click the site-controls or lock icon beside the address bar → Microphone → Allow. Then return to FoodLink and try again.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void toggle()}
+            className="mt-3 min-h-10 w-full rounded-full bg-forest px-4 text-xs font-bold text-white transition hover:bg-forest-dark"
+          >
+            Try microphone again
+          </button>
+        </div>
       )}
     </span>
   );
