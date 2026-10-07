@@ -110,7 +110,7 @@ export function VoiceInputButton({
         aria-label={unavailableLabel}
         className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-muted opacity-45"
       >
-        <MicOff className="h-4.5 w-4.5" aria-hidden />
+        <MicOff className="h-4 w-4" aria-hidden />
       </button>
     );
   }
@@ -127,7 +127,7 @@ export function VoiceInputButton({
       }`}
     >
       {listening && <span className="absolute inset-0 animate-ping rounded-full bg-danger/25" aria-hidden />}
-      <Mic className="relative h-4.5 w-4.5" aria-hidden />
+      <Mic className="relative h-4 w-4" aria-hidden />
     </button>
   );
 }
