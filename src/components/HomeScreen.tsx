@@ -11,7 +11,6 @@ import type { EventView } from "@/lib/db/listings";
 import { telUrl } from "@/lib/format";
 import type { Key } from "@/lib/i18n/dictionary";
 import type { SearchTags } from "@/lib/types";
-import { HeaderControls, Logo } from "./chrome";
 import { EventRow } from "./EventRow";
 import { useI18n } from "./I18nProvider";
 import { EMPTY_TAGS, useSearch } from "./SearchProvider";
@@ -85,11 +84,6 @@ export function HomeScreen({ foodLinePhone }: { foodLinePhone: string }) {
 
   return (
     <div className="mx-auto grid w-full max-w-[1220px] gap-5 px-4 pb-8 pt-5 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.05fr_.95fr] lg:px-8">
-      <header className="flex flex-wrap items-center justify-between gap-3 md:col-span-2">
-        <Logo />
-        <HeaderControls />
-      </header>
-
       <section className="hero-panel fade-up relative overflow-hidden rounded-[30px] border border-line bg-paper/80 px-5 py-7 shadow-card backdrop-blur-xl md:col-span-2 sm:px-7 sm:py-9">
         <div className="hero-orb hero-orb-one" aria-hidden />
         <div className="hero-orb hero-orb-two" aria-hidden />
