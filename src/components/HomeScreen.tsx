@@ -83,18 +83,18 @@ export function HomeScreen({ foodLinePhone }: { foodLinePhone: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-5 px-5 pb-8 pt-5">
-      <header className="flex items-center justify-between">
+    <div className="mx-auto grid w-full max-w-[1220px] gap-5 px-4 pb-8 pt-5 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.05fr_.95fr] lg:px-8">
+      <header className="flex items-center justify-between md:col-span-2">
         <Logo />
         <LangToggle />
       </header>
 
-      <div>
-        <h1 className="font-display text-[26px] font-semibold leading-tight text-ink">{t("home.title")}</h1>
+      <div className="md:col-span-2">
+        <h1 className="font-display text-[26px] font-semibold leading-tight text-ink sm:text-[32px]">{t("home.title")}</h1>
         <p className="mt-1 text-[15px] text-muted">{t("home.subtitle")}</p>
       </div>
 
-      <Link href="/privacy" className="flex items-center gap-3 rounded-2xl bg-mint px-4 py-3 active:bg-mint-line">
+      <Link href="/privacy" className="flex items-center gap-3 rounded-2xl bg-mint px-4 py-3 transition hover:bg-mint-line/70 active:bg-mint-line md:col-span-2">
         <ShieldCheck className="h-6 w-6 shrink-0 text-forest" aria-hidden />
         <span className="leading-snug">
           <span className="block text-sm font-bold text-ink">{t("home.private.title")}</span>
@@ -182,7 +182,7 @@ export function HomeScreen({ foodLinePhone }: { foodLinePhone: string }) {
         </div>
       </form>
 
-      <div className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5">
+      <div className="no-scrollbar flex gap-2 overflow-x-auto md:col-span-2">
         {QUICK_FILTERS.map(({ key, apply }) => (
           <button
             key={key}
@@ -198,7 +198,7 @@ export function HomeScreen({ foodLinePhone }: { foodLinePhone: string }) {
         ))}
       </div>
 
-      <section aria-labelledby="week-title">
+      <section aria-labelledby="week-title" className="min-w-0">
         <div className="mb-2.5 flex items-baseline justify-between">
           <h2 id="week-title" className="font-display text-[17px] font-semibold text-ink">
             {t("home.week.title")}
@@ -216,7 +216,7 @@ export function HomeScreen({ foodLinePhone }: { foodLinePhone: string }) {
 
       <a
         href={telUrl(foodLinePhone)}
-        className="flex min-h-12 items-center justify-center gap-2 rounded-full border-2 border-forest bg-paper px-4 text-sm font-bold text-forest active:bg-mint"
+        className="flex min-h-12 items-center justify-center gap-2 self-start rounded-full border-2 border-forest bg-paper px-4 text-sm font-bold text-forest transition hover:bg-mint active:bg-mint md:self-end"
       >
         <Phone className="h-4 w-4" aria-hidden />
         {t("home.foodline")} · {foodLinePhone}
