@@ -11,10 +11,11 @@ import type { EventView } from "@/lib/db/listings";
 import { telUrl } from "@/lib/format";
 import type { Key } from "@/lib/i18n/dictionary";
 import type { SearchTags } from "@/lib/types";
-import { LangToggle, Logo } from "./chrome";
+import { HeaderControls, Logo } from "./chrome";
 import { EventRow } from "./EventRow";
 import { useI18n } from "./I18nProvider";
 import { EMPTY_TAGS, useSearch } from "./SearchProvider";
+import { SecurityShowcase } from "./SecurityShowcase";
 
 const QUICK_FILTERS: Array<{ key: Key; apply: (t: SearchTags) => SearchTags }> = [
   { key: "chip.open_today", apply: (t) => ({ ...t, when: "today" }) },
@@ -84,26 +85,28 @@ export function HomeScreen({ foodLinePhone }: { foodLinePhone: string }) {
 
   return (
     <div className="mx-auto grid w-full max-w-[1220px] gap-5 px-4 pb-8 pt-5 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.05fr_.95fr] lg:px-8">
-      <header className="flex items-center justify-between md:col-span-2">
+      <header className="flex flex-wrap items-center justify-between gap-3 md:col-span-2">
         <Logo />
-        <LangToggle />
+        <HeaderControls />
       </header>
 
-      <div className="md:col-span-2">
-        <h1 className="font-display text-[26px] font-semibold leading-tight text-ink sm:text-[32px]">{t("home.title")}</h1>
-        <p className="mt-1 text-[15px] text-muted">{t("home.subtitle")}</p>
-      </div>
+      <section className="hero-panel fade-up relative overflow-hidden rounded-[30px] border border-line bg-paper/80 px-5 py-7 shadow-card backdrop-blur-xl md:col-span-2 sm:px-7 sm:py-9">
+        <div className="hero-orb hero-orb-one" aria-hidden />
+        <div className="hero-orb hero-orb-two" aria-hidden />
+        <div className="relative max-w-3xl">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-mint-line bg-mint/80 px-3 py-1.5 text-xs font-bold text-forest shadow-card">
+            <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+            {t("home.private.title")}
+          </div>
+          <h1 className="font-display text-[30px] font-semibold leading-[1.08] text-ink sm:text-[40px] lg:text-[48px]">{t("home.title")}</h1>
+          <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-muted sm:text-base">{t("home.subtitle")}</p>
+        </div>
+      </section>
 
-      <Link href="/privacy" className="flex items-center gap-3 rounded-2xl bg-mint px-4 py-3 transition hover:bg-mint-line/70 active:bg-mint-line md:col-span-2">
-        <ShieldCheck className="h-6 w-6 shrink-0 text-forest" aria-hidden />
-        <span className="leading-snug">
-          <span className="block text-sm font-bold text-ink">{t("home.private.title")}</span>
-          <span className="block text-xs text-body">{t("home.private.body")}</span>
-        </span>
-      </Link>
+      <SecurityShowcase />
 
       <div>
-        <form onSubmit={submitZip} className="ring-within flex items-center gap-2 rounded-2xl border border-line bg-paper py-1.5 pl-4 pr-1.5 shadow-card">
+        <form onSubmit={submitZip} className="ring-within interactive-card flex items-center gap-2 rounded-2xl border border-line bg-paper/90 py-1.5 pl-4 pr-1.5 shadow-card backdrop-blur">
           <Search className="h-5 w-5 shrink-0 text-muted" aria-hidden />
           <label htmlFor="zip" className="sr-only">
             {t("home.zip.placeholder")}
@@ -153,7 +156,7 @@ export function HomeScreen({ foodLinePhone }: { foodLinePhone: string }) {
         )}
       </div>
 
-      <form onSubmit={submitQuestion} className="rounded-2xl border border-ai-line bg-ai-soft p-3.5">
+      <form onSubmit={submitQuestion} className="interactive-card relative overflow-hidden rounded-2xl border border-ai-line bg-ai-soft/90 p-4 shadow-card backdrop-blur">
         <label htmlFor="ask" className="flex flex-wrap items-center gap-2">
           <Sparkles className="h-5 w-5 text-ai" aria-hidden />
           <span className="font-display text-[15px] font-semibold text-ai-dark">{t("home.ask.title")}</span>
@@ -191,7 +194,7 @@ export function HomeScreen({ foodLinePhone }: { foodLinePhone: string }) {
               void search.search(apply(base()));
               router.push("/search");
             }}
-            className="min-h-10 shrink-0 rounded-full border border-line bg-paper px-3.5 text-sm font-medium text-ink shadow-card active:bg-mint"
+            className="interactive-chip min-h-10 shrink-0 rounded-full border border-line bg-paper/90 px-3.5 text-sm font-medium text-ink shadow-card backdrop-blur active:bg-mint"
           >
             {t(key)}
           </button>
