@@ -5,11 +5,10 @@
 // Privacy notes:
 //   - Map tiles are the only thing FoodLink loads from another site. The tile
 //     server sees which map squares were requested, not who asked or why.
-//   - Popups are built with textContent, never innerHTML, so a listing name
-//     can never inject markup into the page.
+//   - Popups are built with DOM text nodes, never listing-provided HTML.
 
 import "leaflet/dist/leaflet.css";
-import type { Map as LeafletMap } from "leaflet";
+import type { Map as LeafletMap, Marker as LeafletMarker } from "leaflet";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { DEFAULT_CENTER, type Point } from "@/lib/geo";
@@ -17,16 +16,32 @@ import { openLabel } from "@/lib/format";
 import type { ListingView } from "@/lib/types";
 import { useI18n } from "./I18nProvider";
 
-const PIN_COLORS = { fresh: "#1f6b45", check: "#b7791f", stale: "#7b857f" } as const;
+export type MapListingKind = "best" | "match" | "check" | "review";
 
-function pinSvg(color: string): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="38" viewBox="0 0 30 38" aria-hidden="true"><path d="M15 1C7.3 1 1 7.1 1 14.7 1 24.6 15 37 15 37s14-12.4 14-22.3C29 7.1 22.7 1 15 1z" fill="${color}" stroke="#fff" stroke-width="2"/><circle cx="15" cy="14.5" r="5" fill="#fff"/></svg>`;
+const PIN_COLORS: Record<MapListingKind, string> = {
+  best: "#5145d6",
+  match: "#1f6b45",
+  check: "#a9690f",
+  review: "#b3261e",
+};
+
+function pinSvg(color: string, label?: string, active = false): string {
+  const scale = active ? 1.14 : 1;
+  const text = label
+    ? `<text x="15" y="18" text-anchor="middle" dominant-baseline="middle" fill="#fff" font-size="10" font-family="Arial,sans-serif" font-weight="700">${label}</text>`
+    : `<circle cx="15" cy="14.5" r="5" fill="#fff"/>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="43" viewBox="0 0 30 38" aria-hidden="true" style="transform:scale(${scale});transform-origin:50% 100%;transition:transform .18s ease;filter:drop-shadow(0 3px 4px rgb(0 0 0 / ${active ? "0.35" : "0.22"}))"><path d="M15 1C7.3 1 1 7.1 1 14.7 1 24.6 15 37 15 37s14-12.4 14-22.3C29 7.1 22.7 1 15 1z" fill="${color}" stroke="#fff" stroke-width="${active ? 2.6 : 2}"/>${text}</svg>`;
 }
 
 interface Props {
   listings: ListingView[];
   origin: Point | null;
   className?: string;
+  height?: number | string;
+  listingKinds?: Record<string, MapListingKind>;
+  rankById?: Record<string, number>;
+  activeListingId?: string | null;
+  onListingHover?: (id: string | null) => void;
   /** Keep the map still (used for the small preview on a listing page). */
   locked?: boolean;
   /** Zoom used when there is a single listing. */
@@ -35,9 +50,22 @@ interface Props {
   zoomButtons?: boolean;
 }
 
-export default function MapView({ listings, origin, className = "h-64", locked = false, singleZoom = 15, zoomButtons = true }: Props) {
+export default function MapView({
+  listings,
+  origin,
+  className = "h-64",
+  height,
+  listingKinds,
+  rankById,
+  activeListingId = null,
+  onListingHover,
+  locked = false,
+  singleZoom = 15,
+  zoomButtons = true,
+}: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
+  const markersRef = useRef<Map<string, LeafletMarker>>(new Map());
   const router = useRouter();
   const { t } = useI18n();
 
@@ -60,10 +88,8 @@ export default function MapView({ listings, origin, className = "h-64", locked =
         attributionControl: true,
       }).setView([DEFAULT_CENTER.lat, DEFAULT_CENTER.lng], 11);
       mapRef.current = map;
+      markersRef.current.clear();
 
-      // Leaflet measures its container only when the map is created. Results can
-      // switch between compact/mobile and wide desktop layouts after that, so
-      // keep Leaflet in sync with the real container size.
       resizeObserver =
         typeof ResizeObserver !== "undefined"
           ? new ResizeObserver(() => {
@@ -80,39 +106,76 @@ export default function MapView({ listings, origin, className = "h-64", locked =
       const points: Array<[number, number]> = [];
 
       for (const listing of listings) {
-        const level = listing.underReview ? "stale" : listing.freshness.level;
+        const kind: MapListingKind =
+          listingKinds?.[listing.id] ??
+          (listing.underReview ? "review" : listing.freshness.level === "fresh" ? "match" : "check");
+        const rank = rankById?.[listing.id];
         const icon = L.divIcon({
           className: "fl-pin",
-          html: pinSvg(PIN_COLORS[level]),
-          iconSize: [30, 38],
-          iconAnchor: [15, 37],
-          popupAnchor: [0, -34],
+          html: pinSvg(PIN_COLORS[kind], rank && rank <= 3 ? String(rank) : undefined, listing.id === activeListingId),
+          iconSize: [34, 43],
+          iconAnchor: [17, 42],
+          popupAnchor: [0, -38],
         });
-        const marker = L.marker([listing.lat, listing.lng], { icon, title: listing.name, alt: listing.name }).addTo(map);
+        const marker = L.marker([listing.lat, listing.lng], {
+          icon,
+          title: listing.name,
+          alt: listing.name,
+          riseOnHover: true,
+        }).addTo(map);
+        markersRef.current.set(listing.id, marker);
         points.push([listing.lat, listing.lng]);
 
         if (!locked) {
           const popup = document.createElement("div");
+          popup.className = "fl-map-popup";
+
           const name = document.createElement("strong");
           name.textContent = listing.name;
           name.style.display = "block";
-          name.style.color = "#14372a";
+
           const status = document.createElement("span");
           status.textContent = openLabel(t, listing.open);
           status.style.display = "block";
-          status.style.margin = "2px 0 6px";
-          status.style.color = "#5e6b63";
+          status.style.margin = "3px 0";
+
+          const distance = document.createElement("span");
+          if (listing.distanceMiles !== null) {
+            distance.textContent = `${listing.distanceMiles.toFixed(1)} mi away`;
+            distance.style.display = "block";
+            distance.style.marginBottom = "7px";
+          }
+
+          const chips = document.createElement("div");
+          chips.className = "fl-map-popup-chips";
+          const facts = [
+            listing.offers[0] ? t(`tag.${listing.offers[0]}` as Parameters<typeof t>[0]) : null,
+            listing.idRequired === "no" ? t("tag.no_id") : null,
+            listing.wheelchair === "yes" ? t("tag.wheelchair") : null,
+          ].filter((v): v is string => !!v);
+          for (const fact of facts.slice(0, 3)) {
+            const chip = document.createElement("span");
+            chip.textContent = fact;
+            chips.appendChild(chip);
+          }
+
           const link = document.createElement("a");
           link.href = `/listing/${listing.id}`;
-          link.textContent = `${t("card.directions")} · ${t("card.call")} →`;
-          link.style.color = "#1f6b45";
-          link.style.fontWeight = "700";
+          link.textContent = `${t("card.directions")} · ${t("results.search")} →`;
+          link.className = "fl-map-popup-link";
           link.addEventListener("click", (e) => {
             e.preventDefault();
             router.push(`/listing/${listing.id}`);
           });
-          popup.append(name, status, link);
+
+          popup.append(name, status);
+          if (listing.distanceMiles !== null) popup.append(distance);
+          if (facts.length > 0) popup.append(chips);
+          popup.append(link);
           marker.bindPopup(popup);
+
+          marker.on("mouseover", () => onListingHover?.(listing.id));
+          marker.on("mouseout", () => onListingHover?.(null));
         }
       }
 
@@ -129,7 +192,6 @@ export default function MapView({ listings, origin, className = "h-64", locked =
       if (points.length === 1 && !origin) {
         map.setView(points[0], singleZoom);
       } else if (points.length > 0) {
-        // Frame the closest handful of places plus the resident's area, not the whole county.
         const framed = points.slice(0, 8);
         if (origin) framed.push([origin.lat, origin.lng]);
         map.fitBounds(L.latLngBounds(framed), { padding: [28, 28], maxZoom: 14 });
@@ -137,8 +199,6 @@ export default function MapView({ listings, origin, className = "h-64", locked =
         map.setView([origin.lat, origin.lng], 12);
       }
 
-      // A second pass after layout/paint fixes the common "blank map until
-      // resize" problem in responsive panels.
       requestAnimationFrame(() => map?.invalidateSize({ pan: false }));
     })();
 
@@ -147,10 +207,52 @@ export default function MapView({ listings, origin, className = "h-64", locked =
       resizeObserver?.disconnect();
       map?.remove();
       mapRef.current = null;
+      markersRef.current.clear();
     };
-    // Rebuild when the set of listings or the origin changes.
+    // Rebuild only when map data changes. Active styling is handled separately.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listings.map((l) => l.id).join(","), origin?.lat, origin?.lng, locked, singleZoom, zoomButtons]);
+  }, [
+    listings.map((l) => `${l.id}:${listingKinds?.[l.id] ?? ""}:${rankById?.[l.id] ?? ""}`).join(","),
+    origin?.lat,
+    origin?.lng,
+    locked,
+    singleZoom,
+    zoomButtons,
+    t,
+  ]);
 
-  return <div ref={container} className={`w-full overflow-hidden ${className}`} role="application" aria-label={t("map.title")} />;
+  useEffect(() => {
+    void import("leaflet").then(({ default: L }) => {
+      for (const listing of listings) {
+        const marker = markersRef.current.get(listing.id);
+        if (!marker) continue;
+        const kind: MapListingKind =
+          listingKinds?.[listing.id] ??
+          (listing.underReview ? "review" : listing.freshness.level === "fresh" ? "match" : "check");
+        const rank = rankById?.[listing.id];
+        const active = listing.id === activeListingId;
+        marker.setIcon(
+          L.divIcon({
+            className: "fl-pin",
+            html: pinSvg(PIN_COLORS[kind], rank && rank <= 3 ? String(rank) : undefined, active),
+            iconSize: [34, 43],
+            iconAnchor: [17, 42],
+            popupAnchor: [0, -38],
+          }),
+        );
+        marker.setZIndexOffset(active ? 1000 : 0);
+        if (active && !locked) marker.openPopup();
+      }
+    });
+  }, [activeListingId, listings, listingKinds, rankById, locked]);
+
+  return (
+    <div
+      ref={container}
+      className={`w-full overflow-hidden ${className}`}
+      style={height !== undefined ? { height: typeof height === "number" ? `${height}px` : height } : undefined}
+      role="application"
+      aria-label={t("map.title")}
+    />
+  );
 }
