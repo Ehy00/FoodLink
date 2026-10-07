@@ -2,13 +2,13 @@
 // Success never signs the user in on its own. It only opens the door to the
 // second factor.
 
-import { audit, clearFailedLogins, findUserByEmail, isLocked, recordFailedLogin } from "@/lib/db/users";
+import { audit, clearFailedLogins, findUserByIdentifier, isLocked, recordFailedLogin } from "@/lib/db/users";
 import { blindIndex, dummyPasswordHash, verifyPassword } from "@/lib/security/crypto";
 import { checkSameOrigin, fail, json, rateLimit, rateLimitKey, readJson } from "@/lib/security/http";
 import { startSession } from "@/lib/security/session";
 import { loginSchema } from "@/lib/validation";
 
-const GENERIC = "Email or password is incorrect.";
+const GENERIC = "Organization ID or password is incorrect.";
 
 export async function POST(request: Request): Promise<Response> {
   const blocked = checkSameOrigin(request) ?? rateLimit(request, "auth", "login");
@@ -16,13 +16,13 @@ export async function POST(request: Request): Promise<Response> {
 
   const body = await readJson(request, loginSchema);
   if (body.response) return body.response;
-  const { email, password } = body.data;
+  const { identifier, password } = body.data;
 
-  // Second limit keyed on the account, so one account cannot be attacked from many addresses.
-  const perAccount = rateLimitKey(`login-account:${blindIndex(email)}`, "auth");
+  // Second limit keyed on the submitted identifier, so one account cannot be attacked from many addresses.
+  const perAccount = rateLimitKey(`login-account:${blindIndex(identifier.toLowerCase())}`, "auth");
   if (perAccount) return perAccount;
 
-  const user = await findUserByEmail(email);
+  const user = await findUserByIdentifier(identifier);
   // Always do the expensive hash comparison, even for unknown emails, so
   // response time does not reveal which emails have accounts.
   const passwordOk = await verifyPassword(password, user?.password_hash ?? (await dummyPasswordHash()));
