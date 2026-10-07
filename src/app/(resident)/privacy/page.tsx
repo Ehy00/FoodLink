@@ -137,18 +137,24 @@ export default async function PrivacyPage() {
   const { lang, t } = await getT();
   const sections = content(lang, getLlmClient() !== null);
   return (
-    <div className="px-5 pb-10 pt-4">
+    <div className="mx-auto w-full max-w-[1100px] px-4 pb-12 pt-5 sm:px-6 lg:px-8">
       <Link href="/" className="-ml-2 inline-flex min-h-11 items-center gap-1 text-sm font-bold text-forest">
         <ChevronLeft className="h-5 w-5" aria-hidden />
         {t("results.back")}
       </Link>
-      <h1 className="mt-1 flex items-center gap-2 font-display text-[22px] font-semibold text-ink">
-        <ShieldCheck className="h-6 w-6 text-forest" aria-hidden />
-        {t("privacy.title")}
-      </h1>
-      <div className="mt-4 space-y-3">
+      <div className="hero-panel fade-up relative mt-2 overflow-hidden rounded-[28px] border border-mint-line bg-mint/80 p-6 shadow-card backdrop-blur-xl">
+        <div className="hero-orb hero-orb-one" aria-hidden />
+        <div className="relative">
+          <span className="mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-forest text-white shadow-card">
+            <ShieldCheck className="h-6 w-6" aria-hidden />
+          </span>
+          <h1 className="font-display text-[26px] font-semibold text-ink sm:text-[32px]">{t("privacy.title")}</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-body">{t("security.center.body")}</p>
+        </div>
+      </div>
+      <div className="mt-5 grid gap-3 md:grid-cols-2">
         {sections.map((s) => (
-          <section key={s.title} className="rounded-2xl border border-line bg-paper p-4 shadow-card">
+          <section key={s.title} className="interactive-card rounded-2xl border border-line bg-paper/90 p-5 shadow-card backdrop-blur">
             <h2 className="font-display text-[15px] font-semibold text-ink">{s.title}</h2>
             <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm leading-snug text-body">
               {s.points.map((p) => (
