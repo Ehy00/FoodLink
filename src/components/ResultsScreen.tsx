@@ -171,7 +171,7 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
     if (!element || typeof ResizeObserver === "undefined") return;
 
     const updateHeight = () => {
-      setDesktopMapHeight(Math.max(320, Math.round(element.getBoundingClientRect().height)));
+      setDesktopMapHeight(Math.max(1, Math.round(element.getBoundingClientRect().height)));
     };
 
     updateHeight();
@@ -224,7 +224,7 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
       ? "review"
       : unconfirmed
         ? "check"
-        : index === 0
+        : pageStart + index === 0
           ? "best"
           : "match";
     rankById[listing.id] = pageStart + index + 1;
@@ -523,7 +523,7 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
         <aside className="sticky top-4 hidden md:block">
           <div
             style={{ height: desktopMapHeight }}
-            className="flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-line bg-paper/90 shadow-card backdrop-blur"
+            className="flex flex-col overflow-hidden rounded-2xl border border-line bg-paper/90 shadow-card backdrop-blur"
           >
             <div className="border-b border-line px-4 py-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
