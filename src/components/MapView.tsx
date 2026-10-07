@@ -75,7 +75,6 @@ export default function MapView({ listings, origin, className = "h-64", locked =
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 18,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noopener noreferrer">OpenStreetMap</a>',
-        referrerPolicy: "no-referrer",
       }).addTo(map);
 
       const points: Array<[number, number]> = [];
