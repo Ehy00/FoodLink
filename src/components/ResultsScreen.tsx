@@ -1,10 +1,11 @@
 "use client";
 
-// Search results are intentionally responsive:
-// - desktop/laptop: list and live map side-by-side
-// - mobile: compact List / Map switch
+// Resident search workspace:
+// - one continuous Ask FoodLink conversation
+// - closest results shown in manageable batches
+// - map always represents exactly the locations currently visible in the list
 
-import { Bot, ChevronLeft, Phone, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import { Bot, ChevronLeft, Phone, Send, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -14,13 +15,15 @@ import type { Audience, ListingView, Offer, SearchTags } from "@/lib/types";
 import { useI18n } from "./I18nProvider";
 import { ListingCard } from "./listing-bits";
 import { EMPTY_TAGS, useSearch } from "./SearchProvider";
-import { TagBar } from "./TagBar";
 import type { MapListingKind } from "./MapView";
+import { VoiceInputButton } from "./VoiceInputButton";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
-  loading: () => <div className="min-h-72 animate-pulse bg-line/60" aria-hidden />,
+  loading: () => <div className="h-[620px] animate-pulse bg-line/60" aria-hidden />,
 });
+
+const PAGE_SIZE = 12;
 
 const NEED_LABELS: Record<Offer, Key> = {
   groceries: "tag.groceries",
@@ -37,6 +40,20 @@ const AUDIENCE_LABELS: Record<Audience, Key> = {
   seniors: "tag.seniors",
   students: "tag.students",
 };
+
+interface ChatTurn {
+  id: number;
+  question: string;
+  answer: string;
+  labels: string[];
+  showTransitNote: boolean;
+}
+
+interface RankedResult {
+  listing: ListingView;
+  unconfirmed: boolean;
+  originalIndex: number;
+}
 
 function selectedLabels(tags: SearchTags, t: ReturnType<typeof useI18n>["t"]): string[] {
   const labels: string[] = [];
@@ -62,7 +79,9 @@ function matchReasons(listing: ListingView, tags: SearchTags, t: ReturnType<type
   if (tags.wheelchair && listing.wheelchair === "yes") reasons.push(t("tag.wheelchair"));
   if (tags.when === "now" && listing.open.state === "open") reasons.push(t("open.now"));
   else if (tags.when === "today" && listing.open.openToday) reasons.push(t("tag.today"));
-  if (reasons.length === 0 && listing.distanceMiles !== null) reasons.push(t("card.miles", { n: listing.distanceMiles.toFixed(1) }));
+  if (reasons.length === 0 && listing.distanceMiles !== null) {
+    reasons.push(t("card.miles", { n: listing.distanceMiles.toFixed(1) }));
+  }
   return reasons.slice(0, 3);
 }
 
@@ -98,6 +117,7 @@ function conversationalReply(
       }),
     );
   }
+
   if (closest.open.state === "open") parts.push(t("ai.reply.open"));
 
   const otherNames = matches.slice(1, 3).map((listing) => listing.name);
@@ -106,63 +126,96 @@ function conversationalReply(
   return { message: parts.join(" "), showTransitNote: closest.distanceMiles !== null };
 }
 
+function rankResults(matches: ListingView[], unconfirmed: ListingView[], hasOrigin: boolean): RankedResult[] {
+  const combined: RankedResult[] = [
+    ...matches.map((listing, index) => ({ listing, unconfirmed: false, originalIndex: index })),
+    ...unconfirmed.map((listing, index) => ({ listing, unconfirmed: true, originalIndex: matches.length + index })),
+  ];
+
+  if (!hasOrigin) return combined;
+
+  return combined.sort((a, b) => {
+    const da = a.listing.distanceMiles ?? Number.POSITIVE_INFINITY;
+    const db = b.listing.distanceMiles ?? Number.POSITIVE_INFINITY;
+    if (da !== db) return da - db;
+    if (a.unconfirmed !== b.unconfirmed) return a.unconfirmed ? 1 : -1;
+    return a.originalIndex - b.originalIndex;
+  });
+}
+
 export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const s = useSearch();
-  const [draft, setDraft] = useState(s.query ?? "");
+  const [draft, setDraft] = useState("");
   const [view, setView] = useState<"list" | "map">("list");
-  const [showUnconfirmed, setShowUnconfirmed] = useState(false);
   const [activeListingId, setActiveListingId] = useState<string | null>(null);
-  const [desktopMapHeight, setDesktopMapHeight] = useState<number>(520);
-  const desktopResultsRef = useRef<HTMLElement>(null);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [turns, setTurns] = useState<ChatTurn[]>([]);
+  const capturedTurnRef = useRef(0);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const { status, hasSearched, search } = s;
+
   useEffect(() => {
     if (status === "idle" && !hasSearched) void search(EMPTY_TAGS);
   }, [status, hasSearched, search]);
 
   useEffect(() => {
-    const element = desktopResultsRef.current;
-    if (!element || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (!entry) return;
-      setDesktopMapHeight(Math.max(360, Math.round(entry.contentRect.height)));
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
+    setVisibleCount(PAGE_SIZE);
+  }, [s.queryId, s.tags.zip, s.origin?.lat, s.origin?.lng]);
 
-  const [shownQuery, setShownQuery] = useState(s.query);
-  if (shownQuery !== s.query) {
-    setShownQuery(s.query);
-    setDraft(s.query ?? "");
-  }
+  useEffect(() => {
+    if (s.status !== "ready" || !s.query || s.queryId === 0 || capturedTurnRef.current === s.queryId) return;
+    const reply = conversationalReply(s.matches, !!s.origin, t);
+    setTurns((current) => [
+      ...current,
+      {
+        id: s.queryId,
+        question: s.query ?? "",
+        answer: reply.message,
+        labels: selectedLabels(s.tags, t),
+        showTransitNote: reply.showTransitNote,
+      },
+    ]);
+    capturedTurnRef.current = s.queryId;
+  }, [s.status, s.queryId, s.query, s.matches, s.origin, s.tags, t]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [turns.length, s.status]);
 
   function submit(e: FormEvent) {
     e.preventDefault();
     const text = draft.trim();
-    if (text) void s.ask(text);
+    if (!text || s.status === "parsing" || s.status === "searching") return;
+    setDraft("");
+    void s.ask(text, true);
   }
 
   const busy = s.status === "parsing" || s.status === "searching" || s.status === "idle";
-  const onMap = s.matches.length === 0 || showUnconfirmed ? [...s.matches, ...s.unconfirmed] : s.matches;
-  const aiLabels = selectedLabels(s.tags, t);
-  const reply = s.status === "ready" ? conversationalReply(s.matches, !!s.origin, t) : null;
+  const rankedResults = rankResults(s.matches, s.unconfirmed, !!s.origin);
+  const visibleResults = rankedResults.slice(0, visibleCount);
+  const visibleListings = visibleResults.map((result) => result.listing);
 
   const listingKinds: Record<string, MapListingKind> = {};
   const rankById: Record<string, number> = {};
-  s.matches.forEach((listing, index) => {
-    listingKinds[listing.id] = listing.underReview ? "review" : index === 0 ? "best" : "match";
+  visibleResults.forEach(({ listing, unconfirmed }, index) => {
+    listingKinds[listing.id] = listing.underReview
+      ? "review"
+      : unconfirmed
+        ? "check"
+        : index === 0
+          ? "best"
+          : "match";
     rankById[listing.id] = index + 1;
   });
-  s.unconfirmed.forEach((listing, index) => {
-    listingKinds[listing.id] = listing.underReview ? "review" : "check";
-    rankById[listing.id] = s.matches.length + index + 1;
-  });
+
+  const pendingQuestion =
+    busy && s.query && s.queryId > 0 && capturedTurnRef.current !== s.queryId ? s.query : null;
 
   const resultsContent = (
     <div aria-live="polite" aria-busy={busy}>
-      {busy && (
+      {busy && rankedResults.length === 0 && (
         <div role="status" className="space-y-3">
           <span className="sr-only">{t("results.loading")}</span>
           {[0, 1, 2].map((i) => (
@@ -173,33 +226,47 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
 
       {s.status === "ready" && (
         <>
-          {s.matches.length > 0 && (
-            <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="font-display text-[15px] font-semibold text-ink">
-                {t(
-                  `results.${s.matches.every((m) => m.freshness.level === "fresh" && !m.underReview) ? "matches" : "places"}.${
-                    s.matches.length === 1 ? "one" : "many"
-                  }`,
-                  { n: s.matches.length },
-                )}
-              </h2>
-              <span className="text-xs text-muted">{s.origin ? t("results.closest") : t("results.noOrigin")}</span>
+          {rankedResults.length > 0 && (
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+              <div>
+                <h2 className="font-display text-[15px] font-semibold text-ink">
+                  {t("results.showing", {
+                    shown: Math.min(visibleCount, rankedResults.length),
+                    total: rankedResults.length,
+                  })}
+                </h2>
+                <p className="mt-0.5 text-xs text-muted">
+                  {s.origin ? t("results.closest") : t("results.noOrigin")}
+                </p>
+              </div>
             </div>
           )}
 
           <div className="flex flex-col gap-3">
-            {s.matches.map((l) => {
-              const reasons = matchReasons(l, s.tags, t);
+            {visibleResults.map(({ listing, unconfirmed }) => {
+              const reasons = matchReasons(listing, s.tags, t);
               return (
-                <div key={l.id}>
+                <div key={listing.id}>
                   <ListingCard
-                    listing={l}
-                    highlighted={activeListingId === l.id}
-                    onHover={(active) => setActiveListingId(active ? l.id : null)}
+                    listing={listing}
+                    highlighted={activeListingId === listing.id}
+                    onHover={(active) => setActiveListingId(active ? listing.id : null)}
                   />
-                  {reasons.length > 0 && (
-                    <div className="-mt-2 mx-3 rounded-b-xl border-x border-b border-ai-line bg-ai-soft px-3 pb-2.5 pt-3 text-xs text-ai-dark">
-                      <span className="font-bold">{t("ai.match.title")}:</span> {reasons.join(" · ")}
+                  {(reasons.length > 0 || unconfirmed) && (
+                    <div
+                      className={`-mt-2 mx-3 rounded-b-xl border-x border-b px-3 pb-2.5 pt-3 text-xs ${
+                        unconfirmed
+                          ? "border-amber-soft bg-amber-soft text-amber"
+                          : "border-ai-line bg-ai-soft text-ai-dark"
+                      }`}
+                    >
+                      {unconfirmed ? (
+                        <span className="font-bold">{t("results.unconfirmed.body")}</span>
+                      ) : (
+                        <>
+                          <span className="font-bold">{t("ai.match.title")}:</span> {reasons.join(" · ")}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -207,7 +274,7 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
             })}
           </div>
 
-          {s.matches.length === 0 && (
+          {rankedResults.length === 0 && (
             <div className="rounded-2xl border border-line bg-paper p-5 text-center shadow-card">
               <h2 className="font-display text-base font-semibold text-ink">{t("results.none.title")}</h2>
               <p className="mt-1 text-sm text-muted">{t("results.none.body")}</p>
@@ -221,30 +288,14 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
             </div>
           )}
 
-          {s.unconfirmed.length > 0 && (
-            <section className="mt-6">
-              <h2 className="font-display text-[15px] font-semibold text-ink">{t("results.unconfirmed.title")}</h2>
-              <p className="mb-2.5 mt-0.5 text-xs text-muted">{t("results.unconfirmed.body")}</p>
-              <div className="flex flex-col gap-3">
-                {(showUnconfirmed ? s.unconfirmed : s.unconfirmed.slice(0, 2)).map((l) => (
-                  <ListingCard
-                    key={l.id}
-                    listing={l}
-                    highlighted={activeListingId === l.id}
-                    onHover={(active) => setActiveListingId(active ? l.id : null)}
-                  />
-                ))}
-              </div>
-              {!showUnconfirmed && s.unconfirmed.length > 2 && (
-                <button
-                  type="button"
-                  onClick={() => setShowUnconfirmed(true)}
-                  className="mt-3 min-h-11 w-full rounded-full border-2 border-line bg-paper text-sm font-bold text-forest"
-                >
-                  {t("results.unconfirmed.more", { n: s.unconfirmed.length - 2 })}
-                </button>
-              )}
-            </section>
+          {visibleCount < rankedResults.length && (
+            <button
+              type="button"
+              onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
+              className="mt-4 min-h-12 w-full rounded-full border-2 border-forest bg-paper/90 px-5 text-sm font-bold text-forest shadow-card transition hover:-translate-y-0.5 hover:bg-mint"
+            >
+              {t("results.showMore")} · {rankedResults.length - visibleCount}
+            </button>
           )}
         </>
       )}
@@ -253,73 +304,126 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
 
   return (
     <div className="mx-auto flex w-full max-w-[1220px] flex-col gap-4 px-4 pb-8 pt-4 sm:px-6 lg:px-8">
-      <form onSubmit={submit} className="flex items-center gap-2">
-        <Link href="/" aria-label={t("results.back")} className="grid h-11 w-9 shrink-0 place-items-center text-ink">
-          <ChevronLeft className="h-6 w-6" aria-hidden />
-        </Link>
-        <div className="ring-within flex min-w-0 flex-1 items-center gap-2 rounded-full border border-line bg-paper px-4 shadow-card">
-          <Sparkles className="h-4 w-4 shrink-0 text-ai" aria-hidden />
-          <label htmlFor="ask-again" className="sr-only">
-            {t("ask.again")}
-          </label>
-          <input
-            id="ask-again"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            maxLength={280}
-            autoComplete="off"
-            enterKeyHint="search"
-            placeholder={t("ask.again")}
-            className="min-h-11 w-full bg-transparent text-base text-ink placeholder:text-muted"
-          />
-        </div>
-      </form>
-
-      {s.status === "parsing" ? (
-        <div className="rounded-2xl border border-ai-line bg-ai-soft p-3.5 text-sm font-medium text-ai-dark" role="status">
-          <Sparkles className="mr-1.5 inline h-4 w-4 animate-pulse" aria-hidden />
-          {t("ai.thinking")}
-        </div>
-      ) : (
-        <TagBar tags={s.tags} fromAi={s.query !== null} engine={s.engine} onChange={(tags) => void s.search(tags, true)} />
-      )}
-
-      {s.query && (
-        <section className="fade-up rounded-[24px] border border-ai-line bg-paper/90 p-4 shadow-card backdrop-blur md:p-5">
-          <h2 className="mb-4 flex items-center gap-2 font-display text-sm font-semibold text-ink">
-            <Sparkles className="h-4 w-4 text-ai" aria-hidden />
-            {t("ai.reply.title")}
-          </h2>
-
-          <div className="ms-auto flex max-w-[88%] items-start justify-end gap-2">
-            <div className="rounded-2xl rounded-se-md bg-forest px-4 py-3 text-sm leading-relaxed text-white shadow-card">
-              {s.query}
-            </div>
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-forest text-white">
-              <UserRound className="h-4 w-4" aria-hidden />
+      <section className="fade-up overflow-hidden rounded-[26px] border border-ai-line bg-paper/90 shadow-card backdrop-blur">
+        <div className="flex items-center justify-between gap-3 border-b border-ai-line px-4 py-3 sm:px-5">
+          <div className="flex items-center gap-3">
+            <Link href="/" aria-label={t("results.back")} className="grid h-9 w-9 place-items-center rounded-full text-ink hover:bg-cream">
+              <ChevronLeft className="h-5 w-5" aria-hidden />
+            </Link>
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-ai text-white shadow-card">
+              <Bot className="h-4.5 w-4.5" aria-hidden />
             </span>
+            <div>
+              <h1 className="font-display text-sm font-semibold text-ink">FoodLink AI</h1>
+              <p className="text-[11px] text-muted">{t("chat.context")}</p>
+            </div>
           </div>
+        </div>
 
-          {reply && (
-            <div className="mt-3 flex max-w-[94%] items-start gap-2">
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ai text-white shadow-card">
+        <div className="max-h-[440px] min-h-[160px] space-y-4 overflow-y-auto px-4 py-5 sm:px-5">
+          {turns.length === 0 && !pendingQuestion && (
+            <div className="flex items-start gap-2">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ai text-white">
                 <Bot className="h-4 w-4" aria-hidden />
               </span>
-              <div className="rounded-2xl rounded-ss-md border border-ai-line bg-ai-soft px-4 py-3 shadow-card">
-                <p className="text-sm leading-relaxed text-body">{reply.message}</p>
-                {aiLabels.length > 0 && (
-                  <p className="mt-2 text-xs font-medium text-ai-dark">
-                    {aiLabels.join(" · ")}
-                  </p>
-                )}
-                {reply.showTransitNote && (
-                  <p className="mt-2 text-[11px] leading-relaxed text-muted">{t("ai.reply.transit")}</p>
-                )}
+              <div className="max-w-[90%] rounded-2xl rounded-ss-md border border-ai-line bg-ai-soft px-4 py-3">
+                <p className="text-sm leading-relaxed text-body">{t("ai.reply.noLocation")}</p>
               </div>
             </div>
           )}
-        </section>
-      )}
+
+          {turns.map((turn) => (
+            <div key={turn.id} className="space-y-3">
+              <div className="ms-auto flex max-w-[90%] items-start justify-end gap-2">
+                <div className="rounded-2xl rounded-se-md bg-forest px-4 py-3 text-sm leading-relaxed text-white shadow-card">
+                  {turn.question}
+                </div>
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-forest text-white">
+                  <UserRound className="h-4 w-4" aria-hidden />
+                </span>
+              </div>
+
+              <div className="flex max-w-[94%] items-start gap-2">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ai text-white shadow-card">
+                  <Bot className="h-4 w-4" aria-hidden />
+                </span>
+                <div className="rounded-2xl rounded-ss-md border border-ai-line bg-ai-soft px-4 py-3 shadow-card">
+                  <p className="text-sm leading-relaxed text-body">{turn.answer}</p>
+                  {turn.labels.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {turn.labels.map((label) => (
+                        <span key={label} className="rounded-full border border-ai-line bg-paper/70 px-2 py-1 text-[10px] font-bold text-ai-dark">
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {turn.showTransitNote && (
+                    <p className="mt-2 text-[11px] leading-relaxed text-muted">{t("ai.reply.transit")}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {pendingQuestion && (
+            <div className="space-y-3">
+              <div className="ms-auto flex max-w-[90%] items-start justify-end gap-2">
+                <div className="rounded-2xl rounded-se-md bg-forest px-4 py-3 text-sm leading-relaxed text-white shadow-card">
+                  {pendingQuestion}
+                </div>
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-forest text-white">
+                  <UserRound className="h-4 w-4" aria-hidden />
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-ai-dark">
+                <span className="grid h-8 w-8 place-items-center rounded-full bg-ai text-white">
+                  <Bot className="h-4 w-4" aria-hidden />
+                </span>
+                <span className="rounded-2xl rounded-ss-md border border-ai-line bg-ai-soft px-4 py-3">
+                  <Sparkles className="me-1.5 inline h-4 w-4 animate-pulse" aria-hidden />
+                  {t("ai.thinking")}
+                </span>
+              </div>
+            </div>
+          )}
+          <div ref={chatEndRef} />
+        </div>
+
+        <form onSubmit={submit} className="border-t border-ai-line bg-ai-soft/40 p-3 sm:p-4">
+          <div className="ring-within flex items-center gap-2 rounded-2xl border border-ai-line bg-paper px-2 py-1.5 shadow-card">
+            <Sparkles className="ms-2 h-4 w-4 shrink-0 text-ai" aria-hidden />
+            <label htmlFor="ask-followup" className="sr-only">
+              {t("chat.followup")}
+            </label>
+            <input
+              id="ask-followup"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              maxLength={280}
+              autoComplete="off"
+              enterKeyHint="send"
+              placeholder={t("chat.followup")}
+              className="min-h-11 min-w-0 flex-1 bg-transparent text-base text-ink placeholder:text-muted"
+            />
+            <VoiceInputButton
+              lang={lang}
+              onTranscript={(text) => setDraft((current) => (current.trim() ? `${current.trim()} ${text}` : text))}
+              label={t("voice.start")}
+              listeningLabel={t("voice.listening")}
+              unavailableLabel={t("voice.unavailable")}
+            />
+            <button
+              type="submit"
+              disabled={!draft.trim() || busy}
+              aria-label={t("chat.send")}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ai text-white transition hover:bg-ai-dark disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Send className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+        </form>
+      </section>
 
       <Link href="/privacy" className="interactive-card rounded-2xl border border-mint-line bg-mint/90 p-4 shadow-card backdrop-blur hover:bg-mint-line/60">
         <div className="flex items-start gap-3">
@@ -349,7 +453,7 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
         </div>
       )}
 
-      {s.status === "ready" && onMap.length > 0 && (
+      {s.status === "ready" && visibleListings.length > 0 && (
         <div className="md:hidden">
           <div role="group" className="mb-3 grid grid-cols-2 rounded-xl border border-line bg-paper p-1 text-sm font-bold shadow-card">
             {(["list", "map"] as const).map((v) => (
@@ -364,10 +468,11 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
               </button>
             ))}
           </div>
+
           {view === "map" && (
             <div className="overflow-hidden rounded-2xl border border-line bg-paper/90 shadow-card backdrop-blur">
               <MapView
-                listings={onMap}
+                listings={visibleListings}
                 origin={s.origin}
                 listingKinds={listingKinds}
                 rankById={rankById}
@@ -381,13 +486,10 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
       )}
 
       <div className="md:grid md:grid-cols-[minmax(0,0.92fr)_minmax(420px,1.08fr)] md:items-start md:gap-5 lg:gap-6">
-        <section ref={desktopResultsRef} className={view === "map" ? "hidden md:block" : "block"}>{resultsContent}</section>
+        <section className={view === "map" ? "hidden md:block" : "block"}>{resultsContent}</section>
 
         <aside className="sticky top-4 hidden md:block">
-          <div
-            style={{ height: desktopMapHeight }}
-            className="flex min-h-[360px] flex-col overflow-hidden rounded-2xl border border-line bg-paper/90 shadow-card backdrop-blur"
-          >
+          <div className="overflow-hidden rounded-2xl border border-line bg-paper/90 shadow-card backdrop-blur">
             <div className="border-b border-line px-4 py-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
@@ -397,32 +499,36 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
                   </p>
                 </div>
                 <span className="rounded-full bg-cream px-2.5 py-1 text-[10px] font-bold text-muted">
-                  {t("map.legend.top")}
+                  {t("results.showing", {
+                    shown: visibleListings.length,
+                    total: rankedResults.length,
+                  })}
                 </span>
               </div>
+
               <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5 text-[11px] font-medium text-muted" aria-label="Map legend">
                 <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-ai" />{t("map.legend.best")}</span>
                 <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-forest" />{t("map.legend.match")}</span>
                 <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-amber" />{t("map.legend.check")}</span>
-                {onMap.some((listing) => listing.underReview) && (
+                {visibleListings.some((listing) => listing.underReview) && (
                   <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-danger" />{t("map.legend.review")}</span>
                 )}
                 {s.origin && <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-blue-500" />{t("map.legend.you")}</span>}
               </div>
             </div>
-            {s.status === "ready" && onMap.length > 0 ? (
+
+            {s.status === "ready" && visibleListings.length > 0 ? (
               <MapView
-                listings={onMap}
+                listings={visibleListings}
                 origin={s.origin}
                 listingKinds={listingKinds}
                 rankById={rankById}
                 activeListingId={activeListingId}
                 onListingHover={setActiveListingId}
-                height="100%"
-                className="min-h-0 flex-1"
+                className="h-[720px]"
               />
             ) : (
-              <div className="min-h-0 flex-1 animate-pulse bg-line/60" aria-hidden />
+              <div className="h-[720px] animate-pulse bg-line/60" aria-hidden />
             )}
           </div>
         </aside>
