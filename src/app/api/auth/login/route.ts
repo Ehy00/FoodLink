@@ -1,4 +1,4 @@
-// POST /api/auth/login  ->  step 1 of sign-in: email and password.
+// POST /api/auth/login  ->  step 1 of sign-in: organization ID (or account email) and password.
 // Success never signs the user in on its own. It only opens the door to the
 // second factor.
 
