@@ -45,7 +45,7 @@ interface SearchState {
 
 interface SearchApi extends SearchState {
   /** Plain-words search: AI parses the text, then the Search API runs. */
-  ask: (text: string) => Promise<void>;
+  ask: (text: string, continueConversation?: boolean) => Promise<void>;
   /** Search with explicit tags (ZIP box, quick filters, or after editing a tag). */
   search: (tags: SearchTags, keepQuery?: boolean) => Promise<void>;
   /** Ask the browser for the device location once. Resolves false if unavailable or denied. */
@@ -94,17 +94,30 @@ export function SearchProvider({ children }: { children: ReactNode }) {
 
   const search = useCallback(
     (tags: SearchTags, keepQuery = false) => run(tags, keepQuery ? {} : { query: null, engine: null }),
-    [run],
+    [run, state.tags],
   );
 
   const ask = useCallback(
-    async (text: string) => {
+    async (text: string, continueConversation = false) => {
       const id = ++requestId.current;
+      const previousTags = state.tags;
       setState((s) => ({ ...s, status: "parsing", query: text, engine: null, errorMessage: null }));
       try {
         const parsed = await postJson<ParseResult>("/api/parse", { text });
         if (id !== requestId.current) return;
-        await run(parsed.tags, { query: text, engine: parsed.engine });
+
+        const tags = continueConversation
+          ? {
+              needs: parsed.tags.needs.length > 0 ? parsed.tags.needs : previousTags.needs,
+              audiences: parsed.tags.audiences.length > 0 ? parsed.tags.audiences : previousTags.audiences,
+              noId: parsed.tags.noId || previousTags.noId,
+              wheelchair: parsed.tags.wheelchair || previousTags.wheelchair,
+              when: parsed.tags.when !== "any" ? parsed.tags.when : previousTags.when,
+              zip: parsed.tags.zip ?? previousTags.zip,
+            }
+          : parsed.tags;
+
+        await run(tags, { query: text, engine: parsed.engine });
       } catch (err) {
         if (id !== requestId.current) return;
         const rate = err instanceof ApiError && err.status === 429;
