@@ -60,6 +60,17 @@ export default function MapView({ listings, origin, className = "h-64", locked =
       }).setView([DEFAULT_CENTER.lat, DEFAULT_CENTER.lng], 11);
       mapRef.current = map;
 
+      // Leaflet measures its container only when the map is created. Results can
+      // switch between compact/mobile and wide desktop layouts after that, so
+      // keep Leaflet in sync with the real container size.
+      const resizeObserver =
+        typeof ResizeObserver !== "undefined"
+          ? new ResizeObserver(() => {
+              map?.invalidateSize({ pan: false });
+            })
+          : null;
+      resizeObserver?.observe(container.current);
+
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 18,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noopener noreferrer">OpenStreetMap</a>',
@@ -125,6 +136,10 @@ export default function MapView({ listings, origin, className = "h-64", locked =
       } else if (origin) {
         map.setView([origin.lat, origin.lng], 12);
       }
+
+      // A second pass after layout/paint fixes the common "blank map until
+      // resize" problem in responsive panels.
+      requestAnimationFrame(() => map?.invalidateSize({ pan: false }));
     })();
 
     return () => {
