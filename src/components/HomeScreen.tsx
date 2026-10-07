@@ -2,7 +2,7 @@
 
 // Step 1 of the resident journey: open FoodLink and say what you need.
 
-import { ArrowRight, LocateFixed, Phone, Search, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, Building2, ClipboardCheck, LocateFixed, LockKeyhole, Phone, Search, ShieldCheck, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
@@ -226,6 +226,54 @@ export function HomeScreen({ foodLinePhone }: { foodLinePhone: string }) {
         <Phone className="h-4 w-4" aria-hidden />
         {t("home.foodline")} · {foodLinePhone}
       </a>
+
+      <section className="md:col-span-2 mt-2 rounded-[26px] border border-line bg-paper/90 p-5 shadow-card backdrop-blur sm:p-6">
+        <div className="flex items-start gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-forest text-white">
+            <Building2 className="h-5 w-5" aria-hidden />
+          </span>
+          <div>
+            <h2 className="font-display text-lg font-semibold text-ink">Organizations & FoodLink Review Team</h2>
+            <p className="mt-1 text-sm text-muted">
+              Food banks, churches and nonprofits can manage verified resources. FoodLink reviewers approve organizations, listings and reports before changes reach residents.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <Link
+            href="/organizer/login"
+            className="interactive-card rounded-2xl border border-mint-line bg-mint/70 p-4 shadow-card"
+          >
+            <div className="flex items-center gap-2 text-forest">
+              <LockKeyhole className="h-5 w-5" aria-hidden />
+              <h3 className="font-display text-base font-semibold">Verified Organization Sign In</h3>
+            </div>
+            <p className="mt-2 text-sm text-body">
+              Sign in with your organization ID, password and 6-digit authenticator code.
+            </p>
+            <p className="mt-3 text-xs font-bold text-forest">Open organization portal →</p>
+          </Link>
+
+          <Link
+            href="/review"
+            className="interactive-card rounded-2xl border border-ai-line bg-ai-soft/70 p-4 shadow-card"
+          >
+            <div className="flex items-center gap-2 text-ai-dark">
+              <ClipboardCheck className="h-5 w-5" aria-hidden />
+              <h3 className="font-display text-base font-semibold">Review Queue & Security Log</h3>
+            </div>
+            <p className="mt-2 text-sm text-body">
+              Review new organizations, food-resource submissions, resident reports and recent staff security activity.
+            </p>
+            <p className="mt-3 text-xs font-bold text-ai-dark">Open review portal →</p>
+          </Link>
+        </div>
+
+        <p className="mt-4 text-xs text-muted">
+          New organization? <Link href="/organizer/apply" className="font-bold text-forest underline">Apply to become a verified FoodLink organization</Link>.
+        </p>
+      </section>
     </div>
   );
 }
