@@ -42,6 +42,9 @@ interface Props {
   singleZoom?: number;
   zoomButtons?: boolean;
   enhancedControls?: boolean;
+  /** Useful for tabbed/mobile maps: refresh sizing and center the user's area when opened. */
+  focusOriginOnReady?: boolean;
+  refreshKey?: string | number;
 }
 
 export default function MapView({
@@ -59,6 +62,8 @@ export default function MapView({
   singleZoom = 15,
   zoomButtons = true,
   enhancedControls = true,
+  focusOriginOnReady = false,
+  refreshKey,
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
@@ -113,6 +118,22 @@ export default function MapView({
     document.addEventListener("fullscreenchange", onChange);
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const refresh = () => {
+      map.invalidateSize({ pan: false });
+      if (focusOriginOnReady && origin) {
+        map.setView([origin.lat, origin.lng], 13, { animate: false });
+      }
+    };
+
+    requestAnimationFrame(refresh);
+    const timer = window.setTimeout(refresh, 140);
+    return () => window.clearTimeout(timer);
+  }, [refreshKey, focusOriginOnReady, origin?.lat, origin?.lng]);
 
   useEffect(() => {
     let cancelled = false;
@@ -259,7 +280,25 @@ export default function MapView({
         map.setView([origin.lat, origin.lng], 12);
       }
 
-      requestAnimationFrame(() => map?.invalidateSize({ pan: false }));
+      const refreshMap = () => {
+        if (!map) return;
+        map.invalidateSize({ pan: false });
+        if (focusOriginOnReady && origin) {
+          map.setView([origin.lat, origin.lng], 13, { animate: false });
+        }
+      };
+
+      requestAnimationFrame(refreshMap);
+      const shortRefresh = window.setTimeout(refreshMap, 80);
+      const settledRefresh = window.setTimeout(refreshMap, 260);
+
+      if (shellRef.current) resizeObserver?.observe(shellRef.current);
+
+      // Keep the timeouts tied to this map instance.
+      map.once("unload", () => {
+        window.clearTimeout(shortRefresh);
+        window.clearTimeout(settledRefresh);
+      });
     })();
 
     return () => {
