@@ -44,11 +44,12 @@ See [docs/DEMO.md](docs/DEMO.md) for a 5-minute walkthrough that follows the sli
 | Feature in the slides | In the prototype |
 | --- | --- |
 | ZIP or location search, closest first | ZIP box, or "Use my location once", which the phone rounds to about a city block before sending |
-| Ask FoodLink: private AI search, English or Spanish | Plain-words box. The AI turns the request into editable tags. The question is never stored |
-| Map and list view | List with a map preview, a Map tab, pins coloured by freshness |
+| Ask FoodLink: private AI search, English or Spanish | Plain-words box. The AI turns the request into editable tags, and result cards explain why a place matched. The question is never stored |
+| Responsive map and list view | Desktop shows results beside a live map; mobile switches between List and Map. ZIP searches center the map around the resident's area, and pins are coloured by freshness |
 | Filters | Open today, open now, free meals, groceries, no ID, wheelchair access, and more |
 | Verified listing details | Hours, eligibility, what is offered, ID policy, "Verified N days ago" badge |
 | Act and confirm | One-tap Directions and Call, then "Did you get food here?" |
+| Privacy and security center | Search storage, rounded location, AI redaction and organizer protections are explained visibly in the resident interface |
 | Report incorrect info | "Report a problem" goes to a human reviewer. One-time events expire on their own |
 | Events and Alerts tabs | Upcoming distributions built from real monthly schedules. Alerts with no subscriber list |
 | Spanish | EN / ES switch for the whole resident interface |
@@ -77,7 +78,7 @@ Security layer: HTTPS · encrypted storage · rate limiting · input validation 
 
 | Box in the diagram | Code |
 | --- | --- |
-| Web app | `src/app/(resident)/`, `src/components/` |
+| Responsive web app | `src/app/(resident)/`, `src/components/` |
 | AI request parser | `src/lib/ai/parse.ts`, `rules-parser.ts`, `llm.ts`, `redact.ts` · `POST /api/parse` |
 | Search API | `src/lib/db/listings.ts` · `POST /api/search` |
 | 2FA login | `src/lib/security/totp.ts`, `session.ts` · `src/app/api/auth/` |
