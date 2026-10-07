@@ -83,7 +83,7 @@ export function ActionButtons({ listing, size = "md" }: { listing: ListingView; 
         href={directionsUrl(listing)}
         target="_blank"
         rel="noopener noreferrer"
-        className={`flex items-center justify-center gap-2 rounded-full bg-forest font-bold text-white active:bg-forest-dark ${height}`}
+        className={`flex items-center justify-center gap-2 rounded-full bg-forest font-bold text-white transition hover:-translate-y-0.5 hover:bg-forest-dark hover:shadow-card active:bg-forest-dark ${height}`}
       >
         <Navigation className="h-4 w-4" fill="currentColor" aria-hidden />
         {t("card.directions")}
@@ -91,7 +91,7 @@ export function ActionButtons({ listing, size = "md" }: { listing: ListingView; 
       {listing.phone ? (
         <a
           href={telUrl(listing.phone)}
-          className={`flex items-center justify-center gap-2 rounded-full border-2 border-forest bg-paper font-bold text-forest active:bg-mint ${height}`}
+          className={`flex items-center justify-center gap-2 rounded-full border-2 border-forest bg-paper font-bold text-forest transition hover:-translate-y-0.5 hover:bg-mint hover:shadow-card active:bg-mint ${height}`}
         >
           <Phone className="h-4 w-4" aria-hidden />
           {t("card.call")}
@@ -111,7 +111,7 @@ export function ListingCard({ listing }: { listing: ListingView }) {
   const { t, lang } = useI18n();
   const chips = listingChips(listing, t);
   return (
-    <article className="rounded-2xl border border-line bg-paper p-4 shadow-card">
+    <article className="interactive-card rounded-2xl border border-line bg-paper/90 p-4 shadow-card backdrop-blur">
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-display text-base font-semibold leading-snug text-ink">
           <Link href={`/listing/${listing.id}`} className="underline-offset-2 hover:underline">
