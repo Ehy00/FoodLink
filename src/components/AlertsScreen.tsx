@@ -1,10 +1,9 @@
 "use client";
 
-// Alerts without accounts. The ZIP code is kept in this browser's own storage
-// (and only after the resident chooses to save it), then sent to /api/alerts
-// to ask "what changed near here?". The server keeps no list of who asked.
+// Resident alerts stay opt-in. ZIP-only alert browsing works today.
+// SMS controls below are a prototype UI until a real SMS provider is connected.
 
-import { BellRing, CalendarDays, MessageSquareText, RefreshCw, Sparkle, TriangleAlert } from "lucide-react";
+import { BellRing, CalendarDays, CheckCircle2, MessageSquareText, RefreshCw, Sparkle, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { postJson } from "@/lib/client-api";
@@ -14,6 +13,7 @@ import type { Key } from "@/lib/i18n/dictionary";
 import { useI18n } from "./I18nProvider";
 
 const STORAGE_KEY = "foodlink.alerts.zip";
+const SMS_STORAGE_KEY = "foodlink.alerts.sms-demo";
 
 const ICONS = {
   new: Sparkle,
@@ -21,6 +21,12 @@ const ICONS = {
   under_review: TriangleAlert,
   event_today: CalendarDays,
 } as const;
+
+interface SmsDemoPreference {
+  zip: string;
+  phone: string;
+  enabled: boolean;
+}
 
 function readSavedZip(): string {
   try {
@@ -31,6 +37,24 @@ function readSavedZip(): string {
   }
 }
 
+function readSmsPreference(): SmsDemoPreference | null {
+  try {
+    const raw = window.localStorage.getItem(SMS_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as SmsDemoPreference;
+    if (!/^\d{5}$/.test(parsed.zip) || !parsed.phone || !parsed.enabled) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function maskPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 4) return phone;
+  return `•••-•••-${digits.slice(-4)}`;
+}
+
 export function AlertsScreen() {
   const { t, lang } = useI18n();
   const [zip, setZip] = useState("");
@@ -38,12 +62,20 @@ export function AlertsScreen() {
   const [alerts, setAlerts] = useState<AlertItem[] | null>(null);
   const [invalid, setInvalid] = useState(false);
 
-  // Read the device's saved ZIP once, after hydration.
+  const [smsZip, setSmsZip] = useState("");
+  const [smsPhone, setSmsPhone] = useState("");
+  const [smsConsent, setSmsConsent] = useState(false);
+  const [smsInvalid, setSmsInvalid] = useState("");
+  const [smsPreference, setSmsPreference] = useState<SmsDemoPreference | null>(null);
+
   useEffect(() => {
     const z = readSavedZip();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time read of browser-only storage
+    const sms = readSmsPreference();
     setSaved(z);
     setZip(z);
+    setSmsZip(sms?.zip || z);
+    setSmsPhone(sms?.phone || "");
+    setSmsPreference(sms);
   }, []);
 
   useEffect(() => {
@@ -70,6 +102,7 @@ export function AlertsScreen() {
     }
     setAlerts(null);
     setSaved(zip);
+    if (!smsZip) setSmsZip(zip);
   }
 
   function forget() {
@@ -81,6 +114,54 @@ export function AlertsScreen() {
     setZip("");
     setAlerts(null);
     setSaved("");
+  }
+
+  function enableSmsDemo(e: FormEvent) {
+    e.preventDefault();
+    setSmsInvalid("");
+
+    if (!/^\d{5}$/.test(smsZip)) {
+      setSmsInvalid("Enter a valid 5-digit ZIP code.");
+      return;
+    }
+
+    const digits = smsPhone.replace(/\D/g, "");
+    if (digits.length < 10 || digits.length > 15) {
+      setSmsInvalid("Enter a valid mobile number.");
+      return;
+    }
+
+    if (!smsConsent) {
+      setSmsInvalid("Please agree to receive FoodLink alert texts before turning alerts on.");
+      return;
+    }
+
+    const next: SmsDemoPreference = {
+      zip: smsZip,
+      phone: smsPhone.trim(),
+      enabled: true,
+    };
+
+    try {
+      window.localStorage.setItem(SMS_STORAGE_KEY, JSON.stringify(next));
+      window.localStorage.setItem(STORAGE_KEY, smsZip);
+    } catch {
+      /* demo remains active for this visit even when local storage is blocked */
+    }
+
+    setSmsPreference(next);
+    setSaved(smsZip);
+    setZip(smsZip);
+  }
+
+  function disableSmsDemo() {
+    try {
+      window.localStorage.removeItem(SMS_STORAGE_KEY);
+    } catch {
+      /* nothing stored */
+    }
+    setSmsPreference(null);
+    setSmsConsent(false);
   }
 
   return (
@@ -164,13 +245,103 @@ export function AlertsScreen() {
         })}
       </ul>
 
-      <div className="mt-5 flex gap-3 rounded-2xl border border-dashed border-line p-4 text-sm">
-        <MessageSquareText className="h-5 w-5 shrink-0 text-muted" aria-hidden />
-        <p>
-          <span className="block font-bold text-ink">{t("alerts.text.title")}</span>
-          <span className="text-muted">{t("alerts.text.body")}</span>
-        </p>
-      </div>
+      <section className="mt-6 overflow-hidden rounded-[24px] border border-ai-line bg-paper shadow-card">
+        <div className="bg-ai-soft/70 p-5">
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-ai text-white">
+              <MessageSquareText className="h-5 w-5" aria-hidden />
+            </span>
+            <div>
+              <h2 className="font-display text-lg font-semibold text-ink">Get a text when food is happening near you</h2>
+              <p className="mt-1 text-sm text-muted">
+                Opt in with your ZIP code and mobile number to receive alerts for nearby food giveaways and important resource updates.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {smsPreference ? (
+          <div className="p-5">
+            <div className="flex items-start gap-3 rounded-2xl border border-mint-line bg-mint p-4">
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-forest" aria-hidden />
+              <div>
+                <p className="font-display text-base font-semibold text-ink">FoodLink text alerts are on</p>
+                <p className="mt-1 text-sm text-body">
+                  ZIP {smsPreference.zip} · {maskPhone(smsPreference.phone)}
+                </p>
+                <p className="mt-1 text-xs text-muted">
+                  Prototype mode: this preference is saved on this device, but FoodLink is not connected to an SMS delivery provider yet, so no real text message will be sent.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={disableSmsDemo}
+              className="mt-4 min-h-11 rounded-full border-2 border-danger px-4 text-sm font-bold text-danger"
+            >
+              Turn Off Alerts
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={enableSmsDemo} className="space-y-4 p-5">
+            <div>
+              <label htmlFor="sms-alert-zip" className="text-sm font-bold text-ink">ZIP code</label>
+              <input
+                id="sms-alert-zip"
+                value={smsZip}
+                onChange={(e) => {
+                  setSmsZip(e.target.value.replace(/\D/g, "").slice(0, 5));
+                  setSmsInvalid("");
+                }}
+                inputMode="numeric"
+                placeholder="35801"
+                className="mt-1.5 min-h-11 w-full rounded-xl border border-line bg-cream px-3 text-base text-ink"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="sms-alert-phone" className="text-sm font-bold text-ink">Mobile number</label>
+              <input
+                id="sms-alert-phone"
+                value={smsPhone}
+                onChange={(e) => {
+                  setSmsPhone(e.target.value.slice(0, 22));
+                  setSmsInvalid("");
+                }}
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="(256) 555-0123"
+                className="mt-1.5 min-h-11 w-full rounded-xl border border-line bg-cream px-3 text-base text-ink"
+              />
+            </div>
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-cream p-3">
+              <input
+                type="checkbox"
+                checked={smsConsent}
+                onChange={(e) => {
+                  setSmsConsent(e.target.checked);
+                  setSmsInvalid("");
+                }}
+                className="mt-1 h-4 w-4 accent-[var(--color-forest)]"
+              />
+              <span className="text-sm leading-relaxed text-body">
+                I agree to receive FoodLink food-alert text messages at the number I entered. I can turn alerts off at any time.
+              </span>
+            </label>
+
+            {smsInvalid && <p role="alert" className="text-sm text-danger">{smsInvalid}</p>}
+
+            <button type="submit" className="min-h-12 w-full rounded-full bg-forest px-5 text-sm font-bold text-white">
+              Turn On Alerts
+            </button>
+
+            <p className="text-xs leading-relaxed text-muted">
+              Demo/prototype only: the sign-up experience is implemented, but actual SMS delivery is not connected yet. A real SMS provider can be added later without changing this resident-facing flow.
+            </p>
+          </form>
+        )}
+      </section>
     </div>
   );
 }
