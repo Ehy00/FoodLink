@@ -213,7 +213,7 @@ const en = {
   "filters.other": "Other",
   "filters.clear": "Clear all",
 
-  "ask.again": "Ask in plain words, English or Spanish",
+  "ask.again": "Ask in plain words in your language",
 
   "common.close": "Close",
   "common.retry": "Try again",
@@ -431,7 +431,7 @@ const es: Record<Key, string> = {
   "filters.other": "Otros",
   "filters.clear": "Quitar todos",
 
-  "ask.again": "Pregunta con tus palabras, en inglés o español",
+  "ask.again": "Pregunta con tus palabras en tu idioma",
 
   "common.close": "Cerrar",
   "common.retry": "Intentar de nuevo",
