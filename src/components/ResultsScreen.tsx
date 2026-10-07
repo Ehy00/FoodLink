@@ -502,10 +502,7 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
           </div>
 
           {view === "map" && (
-            <div
-            style={{ height: desktopMapHeight }}
-            className="flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-line bg-paper/90 shadow-card backdrop-blur"
-          >
+            <div className="overflow-hidden rounded-2xl border border-line bg-paper/90 shadow-card backdrop-blur">
               <MapView
                 listings={visibleListings}
                 origin={s.origin}
@@ -524,7 +521,10 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
         <section ref={desktopResultsRef} className={view === "map" ? "hidden md:block" : "block"}>{resultsContent}</section>
 
         <aside className="sticky top-4 hidden md:block">
-          <div className="overflow-hidden rounded-2xl border border-line bg-paper/90 shadow-card backdrop-blur">
+          <div
+            style={{ height: desktopMapHeight }}
+            className="flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-line bg-paper/90 shadow-card backdrop-blur"
+          >
             <div className="border-b border-line px-4 py-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
