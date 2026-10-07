@@ -262,3 +262,39 @@ html[data-theme="dark"] .food-float {
   0%, 100% { transform: translate3d(0, 0, 0) rotate(-4deg) scale(1); }
   50% { transform: translate3d(0, -18px, 0) rotate(5deg) scale(1.08); }
 }
+
+
+/* ---- Search map result popups ---- */
+.fl-map-popup {
+  min-width: 180px;
+  color: var(--color-body);
+}
+.fl-map-popup strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 13px;
+}
+.fl-map-popup-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 7px 0 9px;
+}
+.fl-map-popup-chips span {
+  border: 1px solid var(--color-line);
+  border-radius: 9999px;
+  background: var(--color-cream);
+  color: var(--color-body);
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.fl-map-popup-link {
+  color: var(--color-forest);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.fl-map-popup-link:hover {
+  text-decoration: underline;
+}
