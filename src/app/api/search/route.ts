@@ -10,21 +10,30 @@ import { guardPublicWrite, json, readJson } from "@/lib/security/http";
 import { searchSchema } from "@/lib/validation";
 
 export async function POST(request: Request): Promise<Response> {
-  const blocked = guardPublicWrite(request, "search", "search");
-  if (blocked) return blocked;
+  try {
+    const blocked = guardPublicWrite(request, "search", "search");
+    if (blocked) return blocked;
 
-  const body = await readJson(request, searchSchema);
-  if (body.response) return body.response;
-  const { tags, origin } = body.data;
+    const body = await readJson(request, searchSchema);
+    if (body.response) return body.response;
+    const { tags, origin } = body.data;
 
-  // A device location (already rounded on the device) wins over a typed ZIP.
-  const point = origin ?? zipToPoint(tags.zip);
-  const result = await searchListings(tags, point);
+    // A device location (already rounded on the device) wins over a typed ZIP.
+    const point = origin ?? zipToPoint(tags.zip);
+    const result = await searchListings(tags, point);
 
-  return json({
-    ...result,
-    origin: point,
-    originKind: origin ? "device" : point ? "zip" : "none",
-    zipOutsidePilot: !!tags.zip && !(tags.zip in PILOT_ZIPS),
-  });
+    return json({
+      ...result,
+      origin: point,
+      originKind: origin ? "device" : point ? "zip" : "none",
+      zipOutsidePilot: !!tags.zip && !(tags.zip in PILOT_ZIPS),
+    });
+  } catch (error) {
+    console.error("FoodLink search failed:", error);
+    const detail =
+      process.env.NODE_ENV === "development" && error instanceof Error
+        ? `Search failed: ${error.message}`
+        : "Search is temporarily unavailable. Please try again.";
+    return json({ error: detail }, 500);
+  }
 }
