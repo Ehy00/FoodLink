@@ -1,11 +1,17 @@
 // Shared guards for every API route: same-origin check, rate limiting,
 // strict JSON parsing and schema validation, and consistent safe responses.
 
+import { createHmac, randomBytes } from "node:crypto";
 import type { z } from "zod";
 import { clientPseudonym } from "./crypto";
 import { limiter, RULES, type RateLimitRule } from "./rate-limit";
 
 const NO_STORE = { "Cache-Control": "no-store, max-age=0" };
+
+// Resident search should not crash just because staff-demo encryption has not
+// been configured yet. When FOODLINK_DATA_KEY is absent, rate limiting uses a
+// random in-memory HMAC key that disappears when the server restarts.
+const EPHEMERAL_CLIENT_KEY = randomBytes(32);
 
 export function json(data: unknown, status = 200, extraHeaders: Record<string, string> = {}): Response {
   return Response.json(data, { status, headers: { ...NO_STORE, ...extraHeaders } });
@@ -26,7 +32,11 @@ export function clientKey(request: Request): string {
   const forwarded = behindProxy ? request.headers.get("x-forwarded-for") : null;
   const address = forwarded?.split(",")[0]?.trim() || "local";
   const day = new Date().toISOString().slice(0, 10);
-  return clientPseudonym(address, day);
+  if (process.env.FOODLINK_DATA_KEY) return clientPseudonym(address, day);
+  return createHmac("sha256", EPHEMERAL_CLIENT_KEY)
+    .update(`${day}|${address}`)
+    .digest("hex")
+    .slice(0, 32);
 }
 
 /** Returns a 429 response if the caller is over the limit, otherwise null. */
