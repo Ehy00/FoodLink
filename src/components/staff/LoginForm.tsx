@@ -12,7 +12,7 @@ import { ErrorNote, Field, primaryButton, TextInput } from "./ui";
 export function LoginForm() {
   const router = useRouter();
   const [step, setStep] = useState<"password" | "code">("password");
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -23,7 +23,7 @@ export function LoginForm() {
     setBusy(true);
     setError("");
     try {
-      const r = await postJson<{ next: "code" | "setup" }>("/api/auth/login", { email, password });
+      const r = await postJson<{ next: "code" | "setup" }>("/api/auth/login", { identifier, password });
       setPassword("");
       if (r.next === "setup") router.push("/organizer/setup-2fa");
       else setStep("code");
@@ -87,10 +87,17 @@ export function LoginForm() {
         <h1 className="font-display text-xl font-semibold">Organizer sign-in</h1>
       </div>
       <p className="text-sm text-muted">
-        For verified food banks, churches and nonprofits. People looking for food never need an account.
+        For verified food banks, churches and nonprofits. Sign in with your FoodLink organization ID and password. People looking for food never need an account.
       </p>
-      <Field label="Email" htmlFor="email">
-        <TextInput id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required />
+      <Field label="Organization ID" htmlFor="identifier">
+        <TextInput
+          id="identifier"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value.trim())}
+          autoComplete="username"
+          placeholder="e.g. user_demo_organizer"
+          required
+        />
       </Field>
       <Field label="Password" htmlFor="password">
         <TextInput
@@ -106,6 +113,9 @@ export function LoginForm() {
       <button type="submit" disabled={busy} className={`${primaryButton} w-full`}>
         Continue
       </button>
+      <p className="rounded-xl bg-cream px-3 py-2 text-xs text-muted">
+        Demo account IDs: <strong className="text-ink">user_demo_organizer</strong> and <strong className="text-ink">user_demo_reviewer</strong>. Use the matching demo password from your local .env.local file.
+      </p>
       <p className="text-center text-sm text-muted">
         New organization?{" "}
         <Link href="/organizer/apply" className="font-bold text-forest underline">
