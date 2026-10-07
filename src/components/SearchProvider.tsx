@@ -40,6 +40,7 @@ interface SearchState {
   originKind: SearchResponse["originKind"];
   zipOutsidePilot: boolean;
   hasSearched: boolean;
+  errorMessage: string | null;
 }
 
 interface SearchApi extends SearchState {
@@ -64,6 +65,7 @@ const INITIAL: SearchState = {
   originKind: "none",
   zipOutsidePilot: false,
   hasSearched: false,
+  errorMessage: null,
 };
 
 const SearchContext = createContext<SearchApi | null>(null);
@@ -77,15 +79,16 @@ export function SearchProvider({ children }: { children: ReactNode }) {
 
   const run = useCallback(async (tags: SearchTags, extra: Partial<SearchState>) => {
     const id = ++requestId.current;
-    setState((s) => ({ ...s, ...extra, tags, status: "searching" }));
+    setState((s) => ({ ...s, ...extra, tags, status: "searching", errorMessage: null }));
     try {
       const result = await postJson<SearchResponse>("/api/search", { tags, origin: deviceRef.current });
       if (id !== requestId.current) return;
-      setState((s) => ({ ...s, ...result, status: "ready", hasSearched: true }));
+      setState((s) => ({ ...s, ...result, status: "ready", hasSearched: true, errorMessage: null }));
     } catch (err) {
       if (id !== requestId.current) return;
       const rate = err instanceof ApiError && err.status === 429;
-      setState((s) => ({ ...s, status: rate ? "rate" : "error", hasSearched: true }));
+      const message = err instanceof Error ? err.message : null;
+      setState((s) => ({ ...s, status: rate ? "rate" : "error", hasSearched: true, errorMessage: message }));
     }
   }, []);
 
@@ -97,7 +100,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
   const ask = useCallback(
     async (text: string) => {
       const id = ++requestId.current;
-      setState((s) => ({ ...s, status: "parsing", query: text, engine: null }));
+      setState((s) => ({ ...s, status: "parsing", query: text, engine: null, errorMessage: null }));
       try {
         const parsed = await postJson<ParseResult>("/api/parse", { text });
         if (id !== requestId.current) return;
@@ -105,7 +108,8 @@ export function SearchProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         if (id !== requestId.current) return;
         const rate = err instanceof ApiError && err.status === 429;
-        setState((s) => ({ ...s, status: rate ? "rate" : "error", hasSearched: true }));
+        const message = err instanceof Error ? err.message : null;
+        setState((s) => ({ ...s, status: rate ? "rate" : "error", hasSearched: true, errorMessage: message }));
       }
     },
     [run],
