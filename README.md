@@ -44,12 +44,15 @@ See [docs/DEMO.md](docs/DEMO.md) for a 5-minute walkthrough that follows the sli
 | Feature in the slides | In the prototype |
 | --- | --- |
 | ZIP or location search, closest first | ZIP box, or "Use my location once", which the phone rounds to about a city block before sending |
-| Ask FoodLink: private AI search, English or Spanish | Plain-words box. The AI turns the request into editable tags, and result cards explain why a place matched. The question is never stored |
+| Ask FoodLink: private multilingual AI search | Plain-words search recognizes common requests across the 10 supported interface languages, turns them into editable tags, and explains why a place matched. The question is never stored |
 | Responsive map and list view | Desktop shows results beside a live map; mobile switches between List and Map. ZIP searches center the map around the resident's area, and pins are coloured by freshness |
+| Modern responsive UI | Animated hero surfaces, glass-style cards, hover motion, improved desktop navigation, and reduced-motion accessibility support |
+| Light / dark / system appearance | Residents can switch appearance without changing FoodLink's green and purple brand palette |
+| 10-language resident interface | English, Spanish, French, Portuguese, Arabic, Chinese, Hindi, Bengali, Russian and Swahili, including RTL layout for Arabic |
 | Filters | Open today, open now, free meals, groceries, no ID, wheelchair access, and more |
 | Verified listing details | Hours, eligibility, what is offered, ID policy, "Verified N days ago" badge |
 | Act and confirm | One-tap Directions and Call, then "Did you get food here?" |
-| Privacy and security center | Search storage, rounded location, AI redaction and organizer protections are explained visibly in the resident interface |
+| Privacy and security center | Search storage, rounded location, AI redaction, AES-256-GCM encrypted organizer data, TOTP two-factor authentication, secure sessions, rate limiting and human-reviewed AI screening are explained visibly in the resident interface |
 | Report incorrect info | "Report a problem" goes to a human reviewer. One-time events expire on their own |
 | Events and Alerts tabs | Upcoming distributions built from real monthly schedules. Alerts with no subscriber list |
 | Spanish | EN / ES switch for the whole resident interface |
