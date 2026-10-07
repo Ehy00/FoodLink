@@ -9,6 +9,7 @@ import "@fontsource/dm-sans/latin-500.css";
 import "@fontsource/dm-sans/latin-700.css";
 import "./globals.css";
 import { I18nProvider } from "@/components/I18nProvider";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import { getLang } from "@/lib/i18n/server";
 
 export const metadata: Metadata = {
@@ -34,7 +35,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang={lang} className="h-full antialiased">
       <body className="min-h-full">
-        <I18nProvider initialLang={lang}>{children}</I18nProvider>
+        <I18nProvider initialLang={lang}>
+          <ThemeProvider>{children}</ThemeProvider>
+        </I18nProvider>
       </body>
     </html>
   );
