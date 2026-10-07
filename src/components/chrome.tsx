@@ -57,7 +57,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Main"
-      className="sticky bottom-0 z-20 grid grid-cols-4 border-t border-line bg-paper/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
+      className="sticky bottom-0 z-20 grid grid-cols-4 border-t border-line bg-paper/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:static md:flex md:justify-center md:gap-1 md:border-t-0 md:pb-0"
     >
       {TABS.map(({ href, key, icon: Icon, match }) => {
         const active = match(pathname);
@@ -66,7 +66,7 @@ export function BottomNav() {
             key={href}
             href={href}
             aria-current={active ? "page" : undefined}
-            className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium ${
+            className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium md:min-h-12 md:flex-row md:gap-2 md:px-5 md:text-sm ${
               active ? "text-forest" : "text-muted"
             }`}
           >
