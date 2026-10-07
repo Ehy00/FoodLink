@@ -35,7 +35,13 @@ export function MapScreen() {
       </header>
       <div className="relative flex min-h-[60dvh] flex-1 flex-col">
         {status === "ready" ? (
-          <MapView listings={all} origin={s.origin} className="min-h-[60dvh] flex-1" />
+          <MapView
+            listings={all}
+            origin={s.origin}
+            className="h-[calc(100dvh-11rem)] min-h-[60dvh]"
+            focusOriginOnReady
+            refreshKey={`map-page:${s.origin?.lat ?? "none"}:${s.origin?.lng ?? "none"}:${all.length}`}
+          />
         ) : (
           <div className="flex-1 animate-pulse bg-line/60" role="status">
             <span className="sr-only">{t("map.loading")}</span>
