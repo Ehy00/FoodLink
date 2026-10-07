@@ -161,7 +161,7 @@ export default function MapView({
 
           const link = document.createElement("a");
           link.href = `/listing/${listing.id}`;
-          link.textContent = `${t("card.directions")} · ${t("results.search")} →`;
+          link.textContent = `${t("card.viewDetails")} →`;
           link.className = "fl-map-popup-link";
           link.addEventListener("click", (e) => {
             e.preventDefault();
@@ -242,6 +242,7 @@ export default function MapView({
         );
         marker.setZIndexOffset(active ? 1000 : 0);
         if (active && !locked) marker.openPopup();
+        else if (!active && !locked) marker.closePopup();
       }
     });
   }, [activeListingId, listings, listingKinds, rankById, locked]);
