@@ -1,4 +1,4 @@
-import { BottomNav, HeaderControls, Logo, PrototypeBanner } from "@/components/chrome";
+import { BottomNav, HeaderControls, Logo } from "@/components/chrome";
 import { SearchProvider } from "@/components/SearchProvider";
 
 // Responsive resident web app: a wide workspace on desktop and a compact,
@@ -7,7 +7,6 @@ export default function ResidentLayout({ children }: LayoutProps<"/">) {
   return (
     <SearchProvider>
       <div className="mx-auto flex min-h-dvh w-full max-w-[1280px] flex-col bg-cream md:min-h-screen md:border-x md:border-line">
-        <PrototypeBanner />
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-paper/85 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
           <Logo />
           <HeaderControls />
