@@ -38,8 +38,7 @@ export default async function OrganizerHome() {
         </Link>
       </div>
       <p className="mt-1 text-sm text-muted">
-        Tap “Still accurate” whenever you have checked a listing. It keeps the green “Verified” badge that residents
-        rely on.
+        Organization ID: <strong className="text-ink">{user.id}</strong>. Tap “Still accurate” whenever you have checked a listing. It keeps the green “Verified” badge that residents rely on.
       </p>
 
       <ul className="mt-4 space-y-3">
