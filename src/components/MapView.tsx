@@ -123,16 +123,30 @@ export default function MapView({
     const map = mapRef.current;
     if (!map) return;
 
+    let frameOne = 0;
+    let frameTwo = 0;
     const refresh = () => {
-      map.invalidateSize({ pan: false });
+      if (!mapRef.current) return;
+      map.invalidateSize({ pan: false, debounceMoveend: true });
       if (focusOriginOnReady && origin) {
         map.setView([origin.lat, origin.lng], 13, { animate: false });
       }
     };
 
-    requestAnimationFrame(refresh);
-    const timer = window.setTimeout(refresh, 140);
-    return () => window.clearTimeout(timer);
+    frameOne = requestAnimationFrame(() => {
+      refresh();
+      frameTwo = requestAnimationFrame(refresh);
+    });
+
+    const timers = [80, 220, 500, 900].map((delay) => window.setTimeout(refresh, delay));
+    window.addEventListener("resize", refresh);
+
+    return () => {
+      cancelAnimationFrame(frameOne);
+      cancelAnimationFrame(frameTwo);
+      timers.forEach((timer) => window.clearTimeout(timer));
+      window.removeEventListener("resize", refresh);
+    };
   }, [refreshKey, focusOriginOnReady, origin?.lat, origin?.lng]);
 
   useEffect(() => {
