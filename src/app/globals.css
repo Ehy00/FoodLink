@@ -298,3 +298,50 @@ html[data-theme="dark"] .food-float {
 .fl-map-popup-link:hover {
   text-decoration: underline;
 }
+
+
+/* ---- Enhanced FoodLink map controls ---- */
+.fl-map-control {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border: 1px solid var(--color-line);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--color-paper) 94%, transparent);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(8px);
+  transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+.fl-map-control:hover {
+  transform: translateY(-1px);
+  background: var(--color-mint);
+  box-shadow: 0 8px 20px rgb(20 55 42 / 0.14);
+}
+.fl-map-control:active {
+  transform: translateY(0);
+}
+.fl-map-popup-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.fl-map-popup-button {
+  border: 0;
+  border-radius: 9999px;
+  background: var(--color-ai-soft);
+  color: var(--color-ai-dark);
+  padding: 5px 9px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.fl-map-popup-button:hover {
+  background: var(--color-ai-line);
+}
+:fullscreen .leaflet-container {
+  min-height: 100vh;
+}
