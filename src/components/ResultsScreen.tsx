@@ -209,7 +209,7 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
       )}
 
       <div className="grid gap-3 md:grid-cols-2">
-        <section className="rounded-2xl border border-ai-line bg-ai-soft p-4">
+        <section className="interactive-card rounded-2xl border border-ai-line bg-ai-soft/90 p-4 shadow-card backdrop-blur">
           <div className="flex items-start gap-3">
             <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-ai" aria-hidden />
             <div>
@@ -222,7 +222,7 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
           </div>
         </section>
 
-        <Link href="/privacy" className="rounded-2xl border border-mint-line bg-mint p-4 transition hover:bg-mint-line/60">
+        <Link href="/privacy" className="interactive-card rounded-2xl border border-mint-line bg-mint/90 p-4 shadow-card backdrop-blur hover:bg-mint-line/60">
           <div className="flex items-start gap-3">
             <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-forest" aria-hidden />
             <div>
@@ -270,7 +270,7 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
             ))}
           </div>
           {view === "map" && (
-            <div className="overflow-hidden rounded-2xl border border-line bg-paper shadow-card">
+            <div className="overflow-hidden rounded-2xl border border-line bg-paper/90 shadow-card backdrop-blur">
               <MapView listings={onMap} origin={s.origin} className="h-[62dvh] min-h-[430px]" />
             </div>
           )}
