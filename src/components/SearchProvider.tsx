@@ -28,6 +28,12 @@ interface SearchResponse {
   zipOutsidePilot: boolean;
 }
 
+interface AskResponse extends SearchResponse {
+  tags: SearchTags;
+  engine: ParseResult["engine"];
+  lang: ParseResult["lang"];
+}
+
 interface SearchState {
   status: Status;
   /** The words typed into Ask FoodLink, if any. Memory only. */
@@ -104,23 +110,33 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     async (text: string, continueConversation = false) => {
       const id = ++requestId.current;
       const previousTags = state.tags;
-      setState((s) => ({ ...s, status: "parsing", query: text, queryId: s.queryId + 1, engine: null, errorMessage: null }));
+      setState((s) => ({
+        ...s,
+        status: "parsing",
+        query: text,
+        queryId: s.queryId + 1,
+        engine: null,
+        errorMessage: null,
+      }));
+
       try {
-        const parsed = await postJson<ParseResult>("/api/parse", { text });
+        const result = await postJson<AskResponse>("/api/ask", {
+          text,
+          previousTags: continueConversation ? previousTags : null,
+          continueConversation,
+          origin: deviceRef.current,
+        });
         if (id !== requestId.current) return;
 
-        const tags = continueConversation
-          ? {
-              needs: parsed.tags.needs.length > 0 ? parsed.tags.needs : previousTags.needs,
-              audiences: parsed.tags.audiences.length > 0 ? parsed.tags.audiences : previousTags.audiences,
-              noId: parsed.tags.noId || previousTags.noId,
-              wheelchair: parsed.tags.wheelchair || previousTags.wheelchair,
-              when: parsed.tags.when !== "any" ? parsed.tags.when : previousTags.when,
-              zip: parsed.tags.zip ?? previousTags.zip,
-            }
-          : parsed.tags;
-
-        await run(tags, { query: text, engine: parsed.engine });
+        setState((s) => ({
+          ...s,
+          ...result,
+          tags: result.tags,
+          engine: result.engine,
+          status: "ready",
+          hasSearched: true,
+          errorMessage: null,
+        }));
       } catch (err) {
         if (id !== requestId.current) return;
         const rate = err instanceof ApiError && err.status === 429;
@@ -128,7 +144,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
         setState((s) => ({ ...s, status: rate ? "rate" : "error", hasSearched: true, errorMessage: message }));
       }
     },
-    [run, state.tags],
+    [state.tags],
   );
 
   const locate = useCallback(
