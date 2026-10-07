@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Force Turbopack to use this repository as its workspace root. This avoids
+  // parent-folder package-lock files making local development serve the wrong app.
+  turbopack: { root: process.cwd() },
+
   // The database driver ships native code and must not be bundled.
   serverExternalPackages: ["@libsql/client", "libsql"],
   // Do not advertise the framework in response headers.
