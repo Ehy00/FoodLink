@@ -181,16 +181,6 @@ const TODAY_PATTERNS = [
   /(आज|आज रात)/, /(আজ|আজ রাতে)/, /\b(сегодня|сегодня вечером)\b/, /\b(leo|usiku wa leo)\b/
 ];
 
-const SPANISH_MARKERS = [
-  "para", "mis", "sin", "comida", "necesito", "cerca", "donde", "hoy", "ninos", "gratis",
-  "tengo", "ahora", "hijos", "busco", "ayuda", "alimentos", "despensa", "de", "la", "el", "los",
-  "una", "con", "quiero", "puedo", "abierto", "familia",
-];
-const ENGLISH_MARKERS = [
-  "the", "for", "my", "need", "near", "where", "today", "free", "food", "kids", "with",
-  "without", "open", "now", "have", "and", "is", "a", "i", "can", "get",
-];
-
 export function detectLang(text: string): Lang {
   if (/[؀-ۿ]/.test(text)) return "ar";
   if (/[一-鿿]/.test(text)) return "zh";
