@@ -67,6 +67,9 @@ const en = {
   "ai.thinking": "Reading your request…",
   "ai.summary.near": "near {zip}",
   "ai.summary.all": "All food help",
+  "ai.match.title": "Why this matches",
+  "security.center.title": "Privacy & security",
+  "security.center.body": "Searches are not stored. Location is rounded before it is sent, and personal details are stripped before any AI request.",
 
   "results.back": "Back",
   "results.search": "Search again",
@@ -271,6 +274,9 @@ const es: Record<Key, string> = {
   "ai.thinking": "Leyendo tu solicitud…",
   "ai.summary.near": "cerca de {zip}",
   "ai.summary.all": "Toda la ayuda alimentaria",
+  "ai.match.title": "Por qué coincide",
+  "security.center.title": "Privacidad y seguridad",
+  "security.center.body": "Las búsquedas no se guardan. La ubicación se redondea antes de enviarse y los datos personales se eliminan antes de cualquier solicitud de IA.",
 
   "results.back": "Atrás",
   "results.search": "Buscar de nuevo",
