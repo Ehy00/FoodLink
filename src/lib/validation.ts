@@ -65,7 +65,15 @@ export const reportSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: z.string().trim().toLowerCase().email().max(254),
+  identifier: z
+    .string()
+    .trim()
+    .min(3)
+    .max(254)
+    .refine(
+      (value) => /^[A-Za-z0-9_-]{3,80}$/.test(value) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+      "Enter an organization ID or email.",
+    ),
   password: z.string().min(1).max(200),
 });
 
