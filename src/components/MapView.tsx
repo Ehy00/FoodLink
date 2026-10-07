@@ -44,6 +44,7 @@ export default function MapView({ listings, origin, className = "h-64", locked =
   useEffect(() => {
     let cancelled = false;
     let map: LeafletMap | null = null;
+    let resizeObserver: ResizeObserver | null = null;
 
     (async () => {
       const L = (await import("leaflet")).default;
@@ -63,7 +64,7 @@ export default function MapView({ listings, origin, className = "h-64", locked =
       // Leaflet measures its container only when the map is created. Results can
       // switch between compact/mobile and wide desktop layouts after that, so
       // keep Leaflet in sync with the real container size.
-      const resizeObserver =
+      resizeObserver =
         typeof ResizeObserver !== "undefined"
           ? new ResizeObserver(() => {
               map?.invalidateSize({ pan: false });
@@ -144,6 +145,7 @@ export default function MapView({ listings, origin, className = "h-64", locked =
 
     return () => {
       cancelled = true;
+      resizeObserver?.disconnect();
       map?.remove();
       mapRef.current = null;
     };
