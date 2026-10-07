@@ -37,6 +37,12 @@ export function findUserById(id: string): Promise<UserRow | null> {
   return queryOne<UserRow>("SELECT * FROM users WHERE id = ?", [id]);
 }
 
+export function findUserByIdentifier(identifier: string): Promise<UserRow | null> {
+  const value = identifier.trim();
+  if (value.includes("@")) return findUserByEmail(value.toLowerCase());
+  return findUserById(value);
+}
+
 export function isLocked(user: UserRow, now: Date = new Date()): boolean {
   return !!user.locked_until && new Date(user.locked_until) > now;
 }
