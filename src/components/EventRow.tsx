@@ -13,7 +13,7 @@ export function EventRow({ event }: { event: EventView }) {
   return (
     <Link
       href={`/listing/${event.listingId}`}
-      className="flex items-center gap-3.5 rounded-2xl border border-line bg-paper p-3 shadow-card active:bg-mint"
+      className="interactive-card flex items-center gap-3.5 rounded-2xl border border-line bg-paper/90 p-3 shadow-card backdrop-blur hover:bg-mint/40 active:bg-mint"
     >
       <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-mint text-center leading-none text-ink">
         <span>
