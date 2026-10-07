@@ -94,7 +94,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
 
   const search = useCallback(
     (tags: SearchTags, keepQuery = false) => run(tags, keepQuery ? {} : { query: null, engine: null }),
-    [run, state.tags],
+    [run],
   );
 
   const ask = useCallback(
@@ -125,7 +125,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
         setState((s) => ({ ...s, status: rate ? "rate" : "error", hasSearched: true, errorMessage: message }));
       }
     },
-    [run],
+    [run, state.tags],
   );
 
   const locate = useCallback(
