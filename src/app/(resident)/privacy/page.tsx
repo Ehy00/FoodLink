@@ -1,4 +1,4 @@
-import { ChevronLeft, MapPinCheck, ShieldCheck, Sparkles, UserRoundX } from "lucide-react";
+import { ChevronLeft, MapPin, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import Link from "next/link";
 import { getT } from "@/lib/i18n/server";
 import type { Lang } from "@/lib/types";
@@ -13,7 +13,7 @@ function content(lang: Lang): Section[] {
   if (lang === "es") {
     return [
       {
-        icon: UserRoundX,
+        icon: UserRound,
         title: "No necesitas una cuenta",
         body: "Puedes buscar comida sin crear un perfil y sin darnos tu nombre, correo o número de teléfono.",
       },
@@ -23,7 +23,7 @@ function content(lang: Lang): Section[] {
         body: "FoodLink usa tu búsqueda para encontrar recursos y luego la descarta. No creamos un historial de lo que buscaste.",
       },
       {
-        icon: MapPinCheck,
+        icon: MapPin,
         title: "Tú decides si compartes tu ubicación",
         body: "Solo usamos tu ubicación si eliges compartirla. Se usa para mostrar opciones cercanas y no se guarda como un historial de ubicación.",
       },
@@ -37,7 +37,7 @@ function content(lang: Lang): Section[] {
 
   return [
     {
-      icon: UserRoundX,
+      icon: UserRound,
       title: "No account required",
       body: "You can look for food without creating a profile or giving us your name, email address, or phone number.",
     },
@@ -47,7 +47,7 @@ function content(lang: Lang): Section[] {
       body: "FoodLink uses your search to find resources and then discards it. We do not build a history of what you searched for.",
     },
     {
-      icon: MapPinCheck,
+      icon: MapPin,
       title: "You choose whether to share location",
       body: "Your location is used only when you choose to share it. It helps show nearby options and is not kept as a location history.",
     },
