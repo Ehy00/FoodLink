@@ -46,6 +46,14 @@ export const searchSchema = z.object({
   origin: pointSchema.nullable(),
 });
 
+export const askSchema = z.object({
+  text: text(1, MAX_REQUEST_CHARS),
+  previousTags: tagsSchema.nullable(),
+  continueConversation: z.boolean(),
+  /** A device location, already rounded on the device. Optional. */
+  origin: pointSchema.nullable(),
+});
+
 export const eventsSchema = z.object({
   zip: zip.nullable(),
   origin: pointSchema.nullable(),
