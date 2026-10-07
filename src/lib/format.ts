@@ -48,28 +48,91 @@ export function hoursNote(l: Pick<Listing, "hoursNoteEn" | "hoursNoteEs">, lang:
   return lang === "es" && l.hoursNoteEs ? l.hoursNoteEs : l.hoursNoteEn;
 }
 
-const WEEKDAY_KEYS = { en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], es: ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"] };
-const ORDINALS = { en: ["1st", "2nd", "3rd", "4th", "5th"], es: ["1.º", "2.º", "3.º", "4.º", "5.º"] };
+const LOCALES: Record<Lang, string> = {
+  en: "en-US",
+  es: "es-US",
+  fr: "fr-FR",
+  pt: "pt-BR",
+  ar: "ar",
+  zh: "zh-CN",
+  hi: "hi-IN",
+  bn: "bn-BD",
+  ru: "ru-RU",
+  sw: "sw-KE",
+};
+
+const EVERY_DAY: Record<Lang, string> = {
+  en: "Every day",
+  es: "Todos los días",
+  fr: "Tous les jours",
+  pt: "Todos os dias",
+  ar: "كل يوم",
+  zh: "每天",
+  hi: "हर दिन",
+  bn: "প্রতিদিন",
+  ru: "Каждый день",
+  sw: "Kila siku",
+};
+
+const RANGE_JOINER: Record<Lang, string> = {
+  en: " to ",
+  es: " a ",
+  fr: " à ",
+  pt: " a ",
+  ar: " إلى ",
+  zh: " 至 ",
+  hi: " से ",
+  bn: " থেকে ",
+  ru: " – ",
+  sw: " hadi ",
+};
+
+const LIST_JOINER: Record<Lang, string> = {
+  en: " and ",
+  es: " y ",
+  fr: " et ",
+  pt: " e ",
+  ar: " و",
+  zh: "、",
+  hi: " और ",
+  bn: " এবং ",
+  ru: " и ",
+  sw: " na ",
+};
 
 export function weekdayShort(day: number, lang: Lang): string {
-  return WEEKDAY_KEYS[lang][day];
+  const date = new Date(Date.UTC(2024, 0, 7 + day));
+  return new Intl.DateTimeFormat(LOCALES[lang], { weekday: "short", timeZone: "UTC" })
+    .format(date)
+    .replace(".", "");
 }
 
-/** [0,1,2,3,4] -> "Mon to Fri"; [1,3,4] -> "Mon, Wed, Thu". */
+/** [0,1,2,3,4] -> a localized day range; [1,3,4] -> a localized list. */
 export function daysLabel(days: number[], lang: Lang): string {
   const sorted = [...days].sort((a, b) => a - b);
-  if (sorted.length === 7) return lang === "es" ? "Todos los días" : "Every day";
+  if (sorted.length === 7) return EVERY_DAY[lang];
   const consecutive = sorted.length >= 3 && sorted.every((d, i) => i === 0 || d === sorted[i - 1] + 1);
   if (consecutive) {
-    const joiner = lang === "es" ? " a " : " to ";
-    return `${weekdayShort(sorted[0], lang)}${joiner}${weekdayShort(sorted[sorted.length - 1], lang)}`;
+    return `${weekdayShort(sorted[0], lang)}${RANGE_JOINER[lang]}${weekdayShort(sorted[sorted.length - 1], lang)}`;
   }
   return sorted.map((d) => weekdayShort(d, lang)).join(", ");
 }
 
+function ordinal(n: number, lang: Lang): string {
+  if (lang === "en") {
+    const suffix = n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th";
+    return `${n}${suffix}`;
+  }
+  if (lang === "es") return `${n}.º`;
+  return String(n);
+}
+
 export function nthLabel(nth: number[], weekday: number, lang: Lang): string {
-  const parts = nth.map((n) => ORDINALS[lang][n - 1]);
-  const joined = parts.length > 1 ? parts.join(lang === "es" ? " y " : " and ") : parts[0];
+  const parts = nth.map((n) => ordinal(n, lang));
+  const joined =
+    parts.length > 1
+      ? `${parts.slice(0, -1).join(", ")}${LIST_JOINER[lang]}${parts[parts.length - 1]}`
+      : parts[0];
   return `${joined} ${weekdayShort(weekday, lang)}`;
 }
 
@@ -80,13 +143,13 @@ export function timeRange(open: string, close: string): string {
 /** Date and time of an ISO instant, shown in the pilot area's time zone. */
 export function eventParts(iso: string, lang: Lang): { weekday: string; day: string; month: string; time: string } {
   const d = new Date(iso);
-  const locale = lang === "es" ? "es-US" : "en-US";
+  const locale = LOCALES[lang];
   const part = (opts: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(locale, { timeZone: TIME_ZONE, ...opts }).format(d);
   return {
     weekday: part({ weekday: "short" }).replace(".", "").toUpperCase(),
     day: part({ day: "numeric" }),
     month: part({ month: "short" }),
-    time: new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE, hour: "numeric", minute: "2-digit" })
+    time: new Intl.DateTimeFormat(locale, { timeZone: TIME_ZONE, hour: "numeric", minute: "2-digit" })
       .format(d)
       .replace(":00", ""),
   };
@@ -94,9 +157,8 @@ export function eventParts(iso: string, lang: Lang): { weekday: string; day: str
 
 export function relativeDay(iso: string, lang: Lang): string {
   const days = calendarDaysBetween(new Date(iso), new Date());
-  if (days <= 0) return lang === "es" ? "hoy" : "today";
-  if (days === 1) return lang === "es" ? "ayer" : "yesterday";
-  return lang === "es" ? `hace ${days} días` : `${days} days ago`;
+  const relative = new Intl.RelativeTimeFormat(LOCALES[lang], { numeric: "auto" });
+  return relative.format(-Math.max(days, 0), "day");
 }
 
 /**
