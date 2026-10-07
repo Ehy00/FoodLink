@@ -58,7 +58,7 @@ export function LoginForm() {
           <Smartphone className="h-6 w-6 text-forest" aria-hidden />
           <h1 className="font-display text-xl font-semibold">Enter your 6-digit code</h1>
         </div>
-        <p className="text-sm text-muted">Open your authenticator app and type the code for FoodLink. Step 2 of 2.</p>
+        <p className="text-sm text-muted">Open your authenticator app and type the current FoodLink code. Codes change every 30 seconds. Step 2 of 2.</p>
         <Field label="Authentication code" htmlFor="code">
           <TextInput
             id="code"
@@ -84,7 +84,7 @@ export function LoginForm() {
     <form onSubmit={submitPassword} className="space-y-4">
       <div className="flex items-center gap-2.5 text-ink">
         <KeyRound className="h-6 w-6 text-forest" aria-hidden />
-        <h1 className="font-display text-xl font-semibold">Organizer sign-in</h1>
+        <h1 className="font-display text-xl font-semibold">Verified Organization Sign In</h1>
       </div>
       <p className="text-sm text-muted">
         For verified food banks, churches and nonprofits. Sign in with your FoodLink organization ID and password. People looking for food never need an account.
