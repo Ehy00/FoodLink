@@ -44,7 +44,7 @@ function content(lang: Lang, aiModelOn: boolean): Section[] {
       {
         title: "Lo que queda en tu teléfono",
         points: [
-          "Tu idioma (inglés o español).",
+          "Tu preferencia de idioma.",
           "El código postal de Alertas, solo si decides guardarlo. Puedes borrarlo con “Olvidar este código postal”.",
         ],
       },
@@ -103,7 +103,7 @@ function content(lang: Lang, aiModelOn: boolean): Section[] {
     {
       title: "What stays on your phone",
       points: [
-        "Your language choice (English or Spanish).",
+        "Your language choice.",
         "Your Alerts ZIP code, only if you choose to save it. Remove it any time with “Forget this ZIP code”.",
       ],
     },
