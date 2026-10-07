@@ -7,7 +7,7 @@
 import { Bot, ChevronLeft, Phone, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { telUrl } from "@/lib/format";
 import type { Key } from "@/lib/i18n/dictionary";
 import type { Audience, ListingView, Offer, SearchTags } from "@/lib/types";
@@ -15,6 +15,7 @@ import { useI18n } from "./I18nProvider";
 import { ListingCard } from "./listing-bits";
 import { EMPTY_TAGS, useSearch } from "./SearchProvider";
 import { TagBar } from "./TagBar";
+import type { MapListingKind } from "./MapView";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
@@ -111,11 +112,25 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
   const [draft, setDraft] = useState(s.query ?? "");
   const [view, setView] = useState<"list" | "map">("list");
   const [showUnconfirmed, setShowUnconfirmed] = useState(false);
+  const [activeListingId, setActiveListingId] = useState<string | null>(null);
+  const [desktopMapHeight, setDesktopMapHeight] = useState<number>(520);
+  const desktopResultsRef = useRef<HTMLElement>(null);
 
   const { status, hasSearched, search } = s;
   useEffect(() => {
     if (status === "idle" && !hasSearched) void search(EMPTY_TAGS);
   }, [status, hasSearched, search]);
+
+  useEffect(() => {
+    const element = desktopResultsRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return;
+      setDesktopMapHeight(Math.max(360, Math.round(entry.contentRect.height)));
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   const [shownQuery, setShownQuery] = useState(s.query);
   if (shownQuery !== s.query) {
@@ -133,6 +148,17 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
   const onMap = s.matches.length === 0 || showUnconfirmed ? [...s.matches, ...s.unconfirmed] : s.matches;
   const aiLabels = selectedLabels(s.tags, t);
   const reply = s.status === "ready" ? conversationalReply(s.matches, !!s.origin, t) : null;
+
+  const listingKinds: Record<string, MapListingKind> = {};
+  const rankById: Record<string, number> = {};
+  s.matches.forEach((listing, index) => {
+    listingKinds[listing.id] = listing.underReview ? "review" : index === 0 ? "best" : "match";
+    rankById[listing.id] = index + 1;
+  });
+  s.unconfirmed.forEach((listing, index) => {
+    listingKinds[listing.id] = listing.underReview ? "review" : "check";
+    rankById[listing.id] = s.matches.length + index + 1;
+  });
 
   const resultsContent = (
     <div aria-live="polite" aria-busy={busy}>
@@ -166,7 +192,11 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
               const reasons = matchReasons(l, s.tags, t);
               return (
                 <div key={l.id}>
-                  <ListingCard listing={l} />
+                  <ListingCard
+                    listing={l}
+                    highlighted={activeListingId === l.id}
+                    onHover={(active) => setActiveListingId(active ? l.id : null)}
+                  />
                   {reasons.length > 0 && (
                     <div className="-mt-2 mx-3 rounded-b-xl border-x border-b border-ai-line bg-ai-soft px-3 pb-2.5 pt-3 text-xs text-ai-dark">
                       <span className="font-bold">{t("ai.match.title")}:</span> {reasons.join(" · ")}
@@ -197,7 +227,12 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
               <p className="mb-2.5 mt-0.5 text-xs text-muted">{t("results.unconfirmed.body")}</p>
               <div className="flex flex-col gap-3">
                 {(showUnconfirmed ? s.unconfirmed : s.unconfirmed.slice(0, 2)).map((l) => (
-                  <ListingCard key={l.id} listing={l} />
+                  <ListingCard
+                    key={l.id}
+                    listing={l}
+                    highlighted={activeListingId === l.id}
+                    onHover={(active) => setActiveListingId(active ? l.id : null)}
+                  />
                 ))}
               </div>
               {!showUnconfirmed && s.unconfirmed.length > 2 && (
@@ -331,27 +366,60 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
           </div>
           {view === "map" && (
             <div className="overflow-hidden rounded-2xl border border-line bg-paper/90 shadow-card backdrop-blur">
-              <MapView listings={onMap} origin={s.origin} className="h-[62dvh] min-h-[430px]" />
+              <MapView
+                listings={onMap}
+                origin={s.origin}
+                listingKinds={listingKinds}
+                rankById={rankById}
+                activeListingId={activeListingId}
+                onListingHover={setActiveListingId}
+                className="h-[62dvh] min-h-[430px]"
+              />
             </div>
           )}
         </div>
       )}
 
       <div className="md:grid md:grid-cols-[minmax(0,0.92fr)_minmax(420px,1.08fr)] md:items-start md:gap-5 lg:gap-6">
-        <section className={view === "map" ? "hidden md:block" : "block"}>{resultsContent}</section>
+        <section ref={desktopResultsRef} className={view === "map" ? "hidden md:block" : "block"}>{resultsContent}</section>
 
         <aside className="sticky top-4 hidden md:block">
-          <div className="overflow-hidden rounded-2xl border border-line bg-paper shadow-card">
+          <div className="overflow-hidden rounded-2xl border border-line bg-paper/90 shadow-card backdrop-blur">
             <div className="border-b border-line px-4 py-3">
-              <h2 className="font-display text-base font-semibold text-ink">{t("map.title")}</h2>
-              <p className="mt-0.5 text-xs text-muted">
-                {s.tags.zip ? t("ai.summary.near", { zip: s.tags.zip }) : t("ai.summary.all")}
-              </p>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h2 className="font-display text-base font-semibold text-ink">{t("map.title")}</h2>
+                  <p className="mt-0.5 text-xs text-muted">
+                    {s.tags.zip ? t("ai.summary.near", { zip: s.tags.zip }) : t("ai.summary.all")}
+                  </p>
+                </div>
+                <span className="rounded-full bg-cream px-2.5 py-1 text-[10px] font-bold text-muted">
+                  {t("map.legend.top")}
+                </span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1.5 text-[11px] font-medium text-muted" aria-label="Map legend">
+                <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-ai" />{t("map.legend.best")}</span>
+                <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-forest" />{t("map.legend.match")}</span>
+                <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-amber" />{t("map.legend.check")}</span>
+                {onMap.some((listing) => listing.underReview) && (
+                  <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-danger" />{t("map.legend.review")}</span>
+                )}
+                {s.origin && <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-blue-500" />{t("map.legend.you")}</span>}
+              </div>
             </div>
             {s.status === "ready" && onMap.length > 0 ? (
-              <MapView listings={onMap} origin={s.origin} className="h-[calc(100dvh-250px)] min-h-[520px] max-h-[760px]" />
+              <MapView
+                listings={onMap}
+                origin={s.origin}
+                listingKinds={listingKinds}
+                rankById={rankById}
+                activeListingId={activeListingId}
+                onListingHover={setActiveListingId}
+                height={desktopMapHeight}
+                className="min-h-[360px]"
+              />
             ) : (
-              <div className="h-[560px] animate-pulse bg-line/60" aria-hidden />
+              <div style={{ height: desktopMapHeight }} className="min-h-[360px] animate-pulse bg-line/60" aria-hidden />
             )}
           </div>
         </aside>
