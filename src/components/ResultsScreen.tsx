@@ -23,7 +23,7 @@ const MapView = dynamic(() => import("./MapView"), {
   loading: () => <div className="h-[620px] animate-pulse bg-line/60" aria-hidden />,
 });
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 4;
 
 const NEED_LABELS: Record<Offer, Key> = {
   groceries: "tag.groceries",
@@ -149,10 +149,12 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
   const [draft, setDraft] = useState("");
   const [view, setView] = useState<"list" | "map">("list");
   const [activeListingId, setActiveListingId] = useState<string | null>(null);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [desktopMapHeight, setDesktopMapHeight] = useState(520);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const capturedTurnRef = useRef(0);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const desktopResultsRef = useRef<HTMLElement>(null);
 
   const { status, hasSearched, search } = s;
 
@@ -161,8 +163,22 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
   }, [status, hasSearched, search]);
 
   useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
+    setPageIndex(0);
   }, [s.queryId, s.tags.zip, s.origin?.lat, s.origin?.lng]);
+
+  useEffect(() => {
+    const element = desktopResultsRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+
+    const updateHeight = () => {
+      setDesktopMapHeight(Math.max(320, Math.round(element.getBoundingClientRect().height)));
+    };
+
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [pageIndex, s.status]);
 
   useEffect(() => {
     if (s.status !== "ready" || !s.query || s.queryId === 0 || capturedTurnRef.current === s.queryId) return;
@@ -194,8 +210,12 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
 
   const busy = s.status === "parsing" || s.status === "searching" || s.status === "idle";
   const rankedResults = rankResults(s.matches, s.unconfirmed, !!s.origin);
-  const visibleResults = rankedResults.slice(0, visibleCount);
+  const pageStart = pageIndex * PAGE_SIZE;
+  const pageEnd = Math.min(pageStart + PAGE_SIZE, rankedResults.length);
+  const visibleResults = rankedResults.slice(pageStart, pageEnd);
   const visibleListings = visibleResults.map((result) => result.listing);
+  const hasPreviousPage = pageIndex > 0;
+  const hasNextPage = pageEnd < rankedResults.length;
 
   const listingKinds: Record<string, MapListingKind> = {};
   const rankById: Record<string, number> = {};
@@ -207,7 +227,7 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
         : index === 0
           ? "best"
           : "match";
-    rankById[listing.id] = index + 1;
+    rankById[listing.id] = pageStart + index + 1;
   });
 
   const pendingQuestion =
@@ -230,8 +250,9 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
               <div>
                 <h2 className="font-display text-[15px] font-semibold text-ink">
-                  {t("results.showing", {
-                    shown: Math.min(visibleCount, rankedResults.length),
+                  {t("results.showingRange", {
+                    start: pageStart + 1,
+                    end: pageEnd,
                     total: rankedResults.length,
                   })}
                 </h2>
@@ -288,14 +309,25 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
             </div>
           )}
 
-          {visibleCount < rankedResults.length && (
-            <button
-              type="button"
-              onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
-              className="mt-4 min-h-12 w-full rounded-full border-2 border-forest bg-paper/90 px-5 text-sm font-bold text-forest shadow-card transition hover:-translate-y-0.5 hover:bg-mint"
-            >
-              {t("results.showMore")} · {rankedResults.length - visibleCount}
-            </button>
+          {(hasPreviousPage || hasNextPage) && (
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setPageIndex((page) => Math.max(0, page - 1))}
+                disabled={!hasPreviousPage}
+                className="min-h-12 rounded-full border-2 border-line bg-paper/90 px-4 text-sm font-bold text-forest shadow-card transition hover:bg-mint disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                {t("results.showPrevious")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPageIndex((page) => page + 1)}
+                disabled={!hasNextPage}
+                className="min-h-12 rounded-full border-2 border-forest bg-paper/90 px-4 text-sm font-bold text-forest shadow-card transition hover:-translate-y-0.5 hover:bg-mint disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                {t("results.showMore")}
+              </button>
+            </div>
           )}
         </>
       )}
@@ -470,7 +502,10 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
           </div>
 
           {view === "map" && (
-            <div className="overflow-hidden rounded-2xl border border-line bg-paper/90 shadow-card backdrop-blur">
+            <div
+            style={{ height: desktopMapHeight }}
+            className="flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-line bg-paper/90 shadow-card backdrop-blur"
+          >
               <MapView
                 listings={visibleListings}
                 origin={s.origin}
@@ -486,7 +521,7 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
       )}
 
       <div className="md:grid md:grid-cols-[minmax(0,0.92fr)_minmax(420px,1.08fr)] md:items-start md:gap-5 lg:gap-6">
-        <section className={view === "map" ? "hidden md:block" : "block"}>{resultsContent}</section>
+        <section ref={desktopResultsRef} className={view === "map" ? "hidden md:block" : "block"}>{resultsContent}</section>
 
         <aside className="sticky top-4 hidden md:block">
           <div className="overflow-hidden rounded-2xl border border-line bg-paper/90 shadow-card backdrop-blur">
@@ -499,8 +534,9 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
                   </p>
                 </div>
                 <span className="rounded-full bg-cream px-2.5 py-1 text-[10px] font-bold text-muted">
-                  {t("results.showing", {
-                    shown: visibleListings.length,
+                  {t("results.showingRange", {
+                    start: pageStart + 1,
+                    end: pageEnd,
                     total: rankedResults.length,
                   })}
                 </span>
@@ -525,10 +561,11 @@ export function ResultsScreen({ foodLinePhone }: { foodLinePhone: string }) {
                 rankById={rankById}
                 activeListingId={activeListingId}
                 onListingHover={setActiveListingId}
-                className="h-[720px]"
+                height="100%"
+                className="min-h-0 flex-1"
               />
             ) : (
-              <div className="h-[720px] animate-pulse bg-line/60" aria-hidden />
+              <div className="min-h-0 flex-1 animate-pulse bg-line/60" aria-hidden />
             )}
           </div>
         </aside>
